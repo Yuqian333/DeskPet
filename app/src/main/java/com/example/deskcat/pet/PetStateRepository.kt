@@ -7,18 +7,24 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Calendar
+import kotlin.random.Random
 
 object PetStateRepository {
     private val _uiState = MutableStateFlow(DesktopPetUiState())
     val uiState: StateFlow<DesktopPetUiState> = _uiState.asStateFlow()
     private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val idleScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var progressRepository: PetProgressRepository? = null
     private var progressLoadJob: Job? = null
+    private var idleChatterJob: Job? = null
+    private var lastUserInteractionAt = System.currentTimeMillis()
 
     fun bindProgressRepository(repository: PetProgressRepository) {
         progressRepository = repository
@@ -36,6 +42,18 @@ object PetStateRepository {
         }
     }
 
+    fun startIdleChatter() {
+        if (idleChatterJob != null) return
+        idleChatterJob = idleScope.launch {
+            while (true) {
+                delay(IDLE_CHATTER_INTERVAL_MS)
+                if (System.currentTimeMillis() - lastUserInteractionAt >= IDLE_CHATTER_MIN_IDLE_MS) {
+                    nudgeIdleState()
+                }
+            }
+        }
+    }
+
     fun onStageReady(stageWidth: Float, stageHeight: Float) {
         val current = _uiState.value
         if (current.initialized || stageWidth <= 0f || stageHeight <= 0f) return
@@ -50,6 +68,7 @@ object PetStateRepository {
     }
 
     fun dragPet(deltaX: Float, deltaY: Float) {
+        markUserInteraction()
         val current = _uiState.value
         val petSize = 192f
         val maxX = (current.bounds.x - petSize).coerceAtLeast(0f)
@@ -66,6 +85,7 @@ object PetStateRepository {
     }
 
     fun pet() {
+        markUserInteraction()
         updateStats(
             mood = PetMood.Happy,
             hungerDelta = -2,
@@ -80,14 +100,17 @@ object PetStateRepository {
     }
 
     fun feed() {
+        markUserInteraction()
         buyFood(PetCatalog.foods.first())
     }
 
     fun play() {
+        markUserInteraction()
         setSpeech("想玩什么？选一个小游戏吧。")
     }
 
     fun rest() {
+        markUserInteraction()
         updateStats(
             mood = PetMood.Sleepy,
             hungerDelta = 1,
@@ -99,20 +122,8 @@ object PetStateRepository {
 
     fun nudgeIdleState() {
         val current = _uiState.value
-        val nextMood = when {
-            current.energy < 35 -> PetMood.Sleepy
-            current.happiness > 85 -> PetMood.Excited
-            current.hunger > 70 -> PetMood.Hungry
-            else -> PetMood.Chill
-        }
-
-        val nextSpeech = when (nextMood) {
-            PetMood.Sleepy -> "有点困了，想找个角落躺一会儿。"
-            PetMood.Chill -> "今天适合安静陪着你。"
-            PetMood.Happy -> "状态不错，随时可以互动。"
-            PetMood.Excited -> "我精神很好，想蹦蹦跳跳！"
-            PetMood.Hungry -> "肚子空空，来点好吃的吗？"
-        }
+        val nextMood = pickIdleMood(current)
+        val nextSpeech = pickIdleSpeech(nextMood)
 
         _uiState.value = current.copy(
             mood = nextMood,
@@ -125,6 +136,7 @@ object PetStateRepository {
     }
 
     fun resetPosition() {
+        markUserInteraction()
         val current = _uiState.value
         val petX = (current.bounds.x * 0.5f) - 96f
         val petY = (current.bounds.y * 0.42f) - 96f
@@ -135,6 +147,7 @@ object PetStateRepository {
     }
 
     fun buyFood(food: FoodItem): Boolean {
+        markUserInteraction()
         val current = _uiState.value
         if (current.coins < food.price) {
             _uiState.value = current.copy(
@@ -158,6 +171,7 @@ object PetStateRepository {
     }
 
     fun finishCoinGame(caughtCoins: Int): Int {
+        markUserInteraction()
         val current = _uiState.value
         val earnedCoins = if (current.energy <= 0) {
             caughtCoins / 2
@@ -185,7 +199,63 @@ object PetStateRepository {
     }
 
     fun setSpeech(speech: String) {
+        markUserInteraction()
         _uiState.value = _uiState.value.copy(speech = speech)
+    }
+
+    private fun markUserInteraction() {
+        lastUserInteractionAt = System.currentTimeMillis()
+    }
+
+    private fun pickIdleMood(current: DesktopPetUiState): PetMood {
+        val weightedMoods = buildList {
+            repeat(4) { add(PetMood.Chill) }
+            if (current.hunger < 35) repeat(5) { add(PetMood.Hungry) }
+            if (current.energy < 35) repeat(5) { add(PetMood.Sleepy) }
+            if (current.happiness > 75) repeat(3) { add(PetMood.Happy) }
+            if (current.happiness > 88 && current.energy > 45) repeat(2) { add(PetMood.Excited) }
+            if (current.hunger >= 55 && current.energy >= 45) add(PetMood.Happy)
+        }
+        return weightedMoods.random()
+    }
+
+    private fun pickIdleSpeech(mood: PetMood): String {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val timeSpeech = when (hour) {
+            in 6..10 -> "早安，今天也从摸摸小猫开始吧。"
+            in 12..13 -> "午休时间到了，记得让眼睛也休息一下。"
+            in 22..23, in 0..5 -> "夜深了，小猫建议你早点休息。"
+            else -> null
+        }
+        if (timeSpeech != null && Random.nextFloat() < 0.35f) return timeSpeech
+
+        return when (mood) {
+            PetMood.Sleepy -> listOf(
+                "有点困了，想找个角落躺一会儿。",
+                "小猫电量偏低，适合休息一下。",
+                "我先眯一会儿，有事轻轻叫我。",
+            )
+            PetMood.Chill -> listOf(
+                "今天适合安静陪着你。",
+                "我在旁边待命，随时可以互动。",
+                "桌面很安静，小猫也很安静。",
+            )
+            PetMood.Happy -> listOf(
+                "状态不错，随时可以互动。",
+                "今天的快乐值看起来很稳定。",
+                "小猫心情很好，想继续陪你。",
+            )
+            PetMood.Excited -> listOf(
+                "我精神很好，想蹦蹦跳跳！",
+                "要不要玩一局接金币？",
+                "今天活力很满，适合做点有趣的事。",
+            )
+            PetMood.Hungry -> listOf(
+                "肚子空空，来点好吃的吗？",
+                "小猫想吃小鱼干。",
+                "小猫可以吃下一头牛！",
+            )
+        }.random()
     }
 
     private fun updateStats(
@@ -214,4 +284,7 @@ object PetStateRepository {
             repository.save(state)
         }
     }
+
+    private const val IDLE_CHATTER_INTERVAL_MS = 18_000L
+    private const val IDLE_CHATTER_MIN_IDLE_MS = 12_000L
 }

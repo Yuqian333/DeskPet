@@ -21,6 +21,7 @@ import com.example.deskcat.pet.PetStateRepository
 import com.example.deskcat.settings.PetImageResolver
 import com.example.deskcat.settings.PetPreferencesRepository
 import com.example.deskcat.settings.PetSettingsUiState
+import com.example.deskcat.weather.WeatherRepositoryProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -86,8 +87,8 @@ class DesktopPetOverlayView(
         orientation = LinearLayout.HORIZONTAL
         visibility = View.GONE
         gravity = Gravity.CENTER
-        layoutParams = LinearLayout.LayoutParams(dp(260), LinearLayout.LayoutParams.WRAP_CONTENT)
-        minimumWidth = dp(260)
+        layoutParams = LinearLayout.LayoutParams(dp(320), LinearLayout.LayoutParams.WRAP_CONTENT)
+        minimumWidth = dp(320)
         setPadding(dp(10), dp(8), dp(10), dp(8))
         background = roundedDrawable(0xEEFFFFFF.toInt(), 18f, 0x22000000.toInt())
     }
@@ -346,6 +347,12 @@ class DesktopPetOverlayView(
         actionRow.addView(spaceView(dp(10), 1))
         actionRow.addView(createActionButton("玩耍") { PetStateRepository.play() })
         actionRow.addView(spaceView(dp(10), 1))
+        actionRow.addView(createActionButton("天气") {
+            scope.launch {
+                WeatherRepositoryProvider.get(context).cachedOrRefreshSavedCity(speak = true)
+            }
+        })
+        actionRow.addView(spaceView(dp(10), 1))
         actionRow.addView(createActionButton("打开") {
             val intent = Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -429,7 +436,7 @@ class DesktopPetOverlayView(
 
     private fun collapsedHeight(): Int = dp(132) + dp(16)
 
-    private fun expandedWidth(): Int = dp(260)
+    private fun expandedWidth(): Int = dp(320)
 
     private fun expandedHeight(): Int {
         return collapsedHeight() + dp(96)

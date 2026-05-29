@@ -74,6 +74,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.deskcat.game.CoinCatchGame
+import com.example.deskcat.game.CoinGameResult
+import com.example.deskcat.game.CoinGameResultDialog
 import com.example.deskcat.pet.FoodItem
 import com.example.deskcat.pet.MiniGameItem
 import com.example.deskcat.pet.PetCatalog
@@ -81,6 +84,7 @@ import com.example.deskcat.settings.PetImageResolver
 import com.example.deskcat.settings.PetSettingsUiState
 import com.example.deskcat.settings.PetSettingsViewModel
 import com.example.deskcat.settings.PetSizePreset
+import com.example.deskcat.weather.WeatherViewModel
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -90,24 +94,22 @@ private enum class DeskCatScreenMode {
     CoinGame,
 }
 
-private data class CoinGameResult(
-    val caughtCoins: Int,
-    val earnedCoins: Int,
-)
-
 @Composable
 fun BakingScreen(
     bakingViewModel: BakingViewModel = viewModel(),
     settingsViewModel: PetSettingsViewModel,
+    weatherViewModel: WeatherViewModel,
     overlayGranted: Boolean,
     overlayRunning: Boolean,
     onPickCustomImage: (((android.net.Uri?) -> Unit) -> Unit),
     onOpenOverlayPermission: () -> Unit,
     onStartOverlay: () -> Unit,
     onStopOverlay: () -> Unit,
+    onRequestDeviceLocation: (((Double?, Double?) -> Unit) -> Unit),
 ) {
     val uiState by bakingViewModel.uiState.collectAsState()
     val settingsState by settingsViewModel.uiState.collectAsState()
+    val weatherState by weatherViewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     var settingsExpanded by remember { mutableStateOf(false) }
     var screenMode by remember { mutableStateOf(DeskCatScreenMode.Main) }
@@ -159,19 +161,14 @@ fun BakingScreen(
             bakingViewModel.onStageReady(stageWidthPx, stageHeightPx)
         }
 
-        val petScale = when (uiState.mood) {
-            PetMood.Sleepy -> 0.96f
-            PetMood.Chill -> 1f
-            PetMood.Happy -> 1.03f
-            PetMood.Excited -> 1.07f
-            PetMood.Hungry -> 0.99f
-        }
-        val petRotation = when (uiState.mood) {
-            PetMood.Sleepy -> -2f
-            PetMood.Chill -> 0f
-            PetMood.Happy -> 2f
-            PetMood.Excited -> 4f
-            PetMood.Hungry -> -1f
+        val requestDeviceWeather = {
+            onRequestDeviceLocation { latitude, longitude ->
+                if (latitude != null && longitude != null) {
+                    weatherViewModel.refreshDeviceWeather(latitude, longitude, speak = true)
+                } else {
+                    weatherViewModel.refreshManualWeather(speak = true)
+                }
+            }
         }
 
         Column(
@@ -210,6 +207,13 @@ fun BakingScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
+                WeatherCard(
+                    weatherState = weatherState,
+                    onAskWeather = { weatherViewModel.refreshManualWeather(speak = true) },
+                    onUseDeviceLocation = requestDeviceWeather,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
                 if (settingsExpanded) {
                     PetSettingsPanel(
                         settingsState = settingsState,
@@ -226,76 +230,28 @@ fun BakingScreen(
                         onScaleChange = settingsViewModel::setSizeScale,
                         onAutoMoveChange = settingsViewModel::setAutoMoveEnabled,
                         modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(stageHeight),
-                    shape = RoundedCornerShape(32.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0x55FFFFFF)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(12.dp),
                     ) {
-                        BackgroundGlow()
-
-                        Text(
-                            text = "拖动小猫到处跑",
-                            modifier = Modifier.align(Alignment.TopStart),
-                            color = Color(0x99000000),
-                            style = MaterialTheme.typography.labelMedium,
+                        WeatherSettingsSection(
+                            weatherState = weatherState,
+                            onCityChange = weatherViewModel::updateCityInput,
+                            onSaveCity = { weatherViewModel.refreshManualWeather(speak = true) },
+                            onUseDeviceLocation = requestDeviceWeather,
                         )
-
-                        if (uiState.initialized) {
-                            Box(
-                                modifier = Modifier
-                                    .offset {
-                                        IntOffset(
-                                            uiState.position.x.roundToInt(),
-                                            uiState.position.y.roundToInt(),
-                                        )
-                                    }
-                                    .requiredSize(192.dp)
-                                    .pointerInput(Unit) {
-                                        detectDragGestures { _, dragAmount ->
-                                            bakingViewModel.dragPet(dragAmount.x, dragAmount.y)
-                                        }
-                                    },
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    AnimatedVisibility(visible = uiState.speech.isNotBlank()) {
-                                        SpeechBubble(text = uiState.speech)
-                                    }
-
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    Box(
-                                        modifier = Modifier
-                                            .size(176.dp)
-                                            .offset(y = ((floatOffset - 0.5f) * bobAmplitude).dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        PetAvatar(
-                                            mood = uiState.mood,
-                                            settingsState = settingsState,
-                                            scale = petScale,
-                                            rotation = petRotation,
-                                            phase = floatOffset,
-                                            modifier = Modifier.requiredSize(150.dp),
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
 
-                ActionPanel(
+                PetStage(
+                    uiState = uiState,
+                    settingsState = settingsState,
+                    stageHeight = stageHeight,
+                    floatOffset = floatOffset,
+                    bobAmplitude = bobAmplitude,
+                    onDragPet = bakingViewModel::dragPet,
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                )
+
+                DesktopActionPanel(
                     onPet = bakingViewModel::pet,
                     onFeed = { showFoodMenu = true },
                     onPlay = { showPlayMenu = true },
@@ -343,6 +299,7 @@ private fun PetSettingsPanel(
     onScaleChange: (Float) -> Unit,
     onAutoMoveChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    weatherContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val context = LocalContext.current
     val previewTargetPx = with(LocalDensity.current) {
@@ -465,6 +422,7 @@ private fun PetSettingsPanel(
                     onCheckedChange = onAutoMoveChange,
                 )
             }
+            weatherContent()
         }
     }
 }
@@ -707,29 +665,12 @@ private fun MoodBadge(mood: PetMood) {
 }
 
 @Composable
-private fun SpeechBubble(text: String) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF)),
-        shape = RoundedCornerShape(22.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        modifier = Modifier.width(220.dp),
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(14.dp),
-            color = Color(0xFF111111),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-@Composable
 private fun PlayMenuDialog(
     onSelectGame: (MiniGameItem) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        MenuDialogCard(title = "选择小游戏", subtitle = "玩耍获得金币，再去买好吃的。") {
+        MenuDialogCard(title = "选择小游戏", subtitle = "玩耍获得金币，再去给小猫买好吃的！") {
             PetCatalog.miniGames.forEach { game ->
                 GameMenuCard(game = game, onClick = { onSelectGame(game) })
                 Spacer(modifier = Modifier.height(10.dp))
@@ -908,406 +849,6 @@ private fun MenuItemCard(
                 color = if (locked) Color(0xFF777777) else Color(0xFF111111),
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 13.sp,
-            )
-        }
-    }
-}
-
-@Composable
-private fun CoinGameResultDialog(
-    result: CoinGameResult,
-    onDismiss: () -> Unit,
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEFCF7)),
-            shape = RoundedCornerShape(28.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.icon_coin),
-                    contentDescription = "金币",
-                    modifier = Modifier.size(86.dp),
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "本局接到 ${result.caughtCoins} 枚金币",
-                    color = Color(0xFF111111),
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = "实际获得 ${result.earnedCoins} 金币",
-                    color = Color(0xFF666666),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = onDismiss) {
-                    Text("返回主界面")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CoinCatchGame(
-    settingsState: PetSettingsUiState,
-    uiState: DesktopPetUiState,
-    onFinish: (Int) -> Unit,
-    onExit: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var timeLeftMillis by remember { mutableStateOf(20_000L) }
-    var caughtCoins by remember { mutableStateOf(0) }
-    var playerX by remember { mutableStateOf(0f) }
-    var coinX by remember { mutableStateOf(0f) }
-    var coinY by remember { mutableStateOf(0f) }
-    var gameStarted by remember { mutableStateOf(false) }
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xEEFFFFFF)),
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        modifier = modifier,
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column {
-                    Text(
-                        text = "接金币",
-                        color = Color(0xFF111111),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Text(
-                        text = if (uiState.energy <= 0) "精力不足，本局奖励减半" else "拖动小猫接住金币",
-                        color = Color(0xFF666666),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                TextButton(onClick = onExit) {
-                    Text("退出")
-                }
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = "剩余 ${((timeLeftMillis + 999) / 1000).coerceAtLeast(0)} 秒",
-                    color = Color(0xFF333333),
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = "接到 $caughtCoins",
-                    color = Color(0xFF333333),
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(430.dp)
-                    .background(Color(0x55FFFFFF), RoundedCornerShape(24.dp))
-                    .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(24.dp))
-                    .pointerInput(Unit) {
-                        detectDragGestures { _, dragAmount ->
-                            playerX = (playerX + dragAmount.x).coerceIn(70f, size.width - 70f)
-                        }
-                    },
-            ) {
-                val density = LocalDensity.current
-                val gameWidthPx = with(density) { maxWidth.toPx() }
-                val gameHeightPx = with(density) { maxHeight.toPx() }
-                val coinSize = 52.dp
-                val petSize = 116.dp
-                val coinSizePx = with(density) { coinSize.toPx() }
-                val petSizePx = with(density) { petSize.toPx() }
-
-                LaunchedEffect(gameWidthPx, gameHeightPx) {
-                    if (gameWidthPx <= 0f || gameHeightPx <= 0f || gameStarted) return@LaunchedEffect
-                    gameStarted = true
-                    playerX = gameWidthPx / 2f
-                    coinX = Random.nextFloat() * (gameWidthPx - coinSizePx) + coinSizePx / 2f
-                    coinY = -coinSizePx
-                    var remaining = 20_000L
-                    var lastFrame = withFrameNanos { it }
-                    while (remaining > 0L) {
-                        val now = withFrameNanos { it }
-                        val deltaMillis = ((now - lastFrame) / 1_000_000L).coerceAtLeast(1L)
-                        lastFrame = now
-                        remaining = (remaining - deltaMillis).coerceAtLeast(0L)
-                        timeLeftMillis = remaining
-
-                        val speed = 0.32f + caughtCoins * 0.012f
-                        coinY += deltaMillis * speed
-                        val catcherY = gameHeightPx - petSizePx * 0.62f
-                        val caught = coinY + coinSizePx >= catcherY && abs(coinX - playerX) <= petSizePx * 0.56f
-                        if (caught) {
-                            caughtCoins += 1
-                            coinX = Random.nextFloat() * (gameWidthPx - coinSizePx) + coinSizePx / 2f
-                            coinY = -coinSizePx
-                        } else if (coinY > gameHeightPx) {
-                            coinX = Random.nextFloat() * (gameWidthPx - coinSizePx) + coinSizePx / 2f
-                            coinY = -coinSizePx
-                        }
-                    }
-                    onFinish(caughtCoins)
-                }
-
-                BackgroundGlow()
-                Image(
-                    painter = painterResource(id = R.drawable.icon_coin),
-                    contentDescription = "掉落金币",
-                    modifier = Modifier
-                        .offset {
-                            IntOffset(
-                                (coinX - coinSizePx / 2f).roundToInt(),
-                                coinY.roundToInt(),
-                            )
-                        }
-                        .size(coinSize),
-                )
-                Box(
-                    modifier = Modifier
-                        .offset {
-                            IntOffset(
-                                (playerX - petSizePx / 2f).roundToInt(),
-                                (gameHeightPx - petSizePx - 16f).roundToInt(),
-                            )
-                        }
-                        .size(petSize),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    PetAvatar(
-                        mood = PetMood.Excited,
-                        settingsState = settingsState,
-                        scale = 1f,
-                        rotation = 0f,
-                        phase = 0.75f,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionPanel(
-    onPet: () -> Unit,
-    onFeed: () -> Unit,
-    onPlay: () -> Unit,
-    onRest: () -> Unit,
-    onReset: () -> Unit,
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xEEFFFFFF)),
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "互动操作",
-                color = Color(0xFF111111),
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                ActionChip(
-                    text = "摸摸",
-                    onClick = onPet,
-                    containerColor = Color(0xFFF1E7D7),
-                    modifier = Modifier.weight(1f),
-                )
-                ActionChip(
-                    text = "喂食",
-                    onClick = onFeed,
-                    containerColor = Color(0xFFE8E2D8),
-                    modifier = Modifier.weight(1f),
-                )
-                ActionChip(
-                    text = "玩耍",
-                    onClick = onPlay,
-                    containerColor = Color(0xFFF7F4EE),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                ActionChip(
-                    text = "休息",
-                    onClick = onRest,
-                    containerColor = Color(0xFFE6E1DA),
-                    modifier = Modifier.weight(1f),
-                )
-                ActionChip(
-                    text = "归位",
-                    onClick = onReset,
-                    containerColor = Color(0xFFF0EEE9),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionChip(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    containerColor: Color,
-) {
-    AssistChip(
-        onClick = onClick,
-        modifier = modifier,
-        label = { Text(text) },
-        colors = AssistChipDefaults.assistChipColors(
-            containerColor = containerColor,
-            labelColor = Color(0xFF111111),
-        ),
-    )
-}
-
-@Composable
-private fun BackgroundGlow() {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        drawCircle(
-            color = Color(0x20FFFFFF),
-            radius = size.minDimension * 0.42f,
-            center = Offset(size.width * 0.16f, size.height * 0.16f),
-        )
-        drawCircle(
-            color = Color(0x22FFFFFF),
-            radius = size.minDimension * 0.26f,
-            center = Offset(size.width * 0.82f, size.height * 0.18f),
-        )
-        drawCircle(
-            color = Color(0x14FFFFFF),
-            radius = size.minDimension * 0.2f,
-            center = Offset(size.width * 0.82f, size.height * 0.8f),
-        )
-    }
-}
-
-@Composable
-private fun PetAvatar(
-    mood: PetMood,
-    settingsState: PetSettingsUiState,
-    scale: Float,
-    rotation: Float,
-    phase: Float,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val targetImageSizePx = with(LocalDensity.current) {
-        (220f * settingsState.sizeScale).dp.toPx().roundToInt().coerceAtLeast(1)
-    }
-    val customBitmap = remember(settingsState.imageUri, targetImageSizePx) {
-        PetImageResolver.decodeBitmap(context, settingsState.imageUri, targetImageSizePx)
-    }
-    val appliedScale = scale * settingsState.sizeScale
-    val catFrame = when (mood) {
-        PetMood.Chill -> R.drawable.cat5_re
-        PetMood.Happy -> when {
-            phase < 0.2f -> R.drawable.cat5_re
-            phase < 0.4f -> R.drawable.cat6_re
-            phase < 0.6f -> R.drawable.cat7_re
-            phase < 0.8f -> R.drawable.cat6_re
-            else -> R.drawable.cat5_re
-        }
-        PetMood.Sleepy -> when {
-            phase < 0.5f -> R.drawable.cat6_re
-            else -> R.drawable.cat7_re
-        }
-        PetMood.Excited -> when {
-            phase < 0.25f -> R.drawable.cat5_re
-            phase < 0.5f -> R.drawable.cat8_re
-            phase < 0.75f -> R.drawable.cat9_re
-            else -> R.drawable.cat5_re
-        }
-        PetMood.Hungry -> R.drawable.cat5_re
-    }
-    val wave = kotlin.math.sin(phase * kotlin.math.PI * 2.0).toFloat()
-    val moodTilt = when (mood) {
-        PetMood.Sleepy -> -4f
-        PetMood.Chill -> 0f
-        PetMood.Happy -> 0.8f
-        PetMood.Excited -> 2f
-        PetMood.Hungry -> -0.5f
-    }
-    val moodNudgeX = when (mood) {
-        PetMood.Sleepy -> -0.8f
-        PetMood.Chill -> 0f
-        PetMood.Happy -> 0.8f
-        PetMood.Excited -> 1.8f
-        PetMood.Hungry -> -0.3f
-    }
-    val moodNudgeY = when (mood) {
-        PetMood.Sleepy -> 2f
-        PetMood.Chill -> 0f
-        PetMood.Happy -> 1f
-        PetMood.Excited -> -1.4f
-        PetMood.Hungry -> 0.5f
-    }
-
-    Box(
-        modifier = modifier.graphicsLayer {
-            translationX = moodNudgeX + wave * when (mood) {
-                PetMood.Excited -> 2.4f
-                PetMood.Happy -> 1.2f
-                PetMood.Sleepy -> 0.8f
-                else -> 1f
-            }
-            translationY = moodNudgeY + wave * when (mood) {
-                PetMood.Excited -> 1.8f
-                PetMood.Happy -> 1f
-                PetMood.Sleepy -> 1.2f
-                else -> 0.9f
-            }
-            rotationZ = rotation + moodTilt + wave * when (mood) {
-                PetMood.Excited -> 1.3f
-                PetMood.Happy -> 0.7f
-                PetMood.Sleepy -> 0.6f
-                else -> 0.5f
-            }
-            scaleX = appliedScale
-            scaleY = appliedScale
-        },
-        contentAlignment = Alignment.Center,
-    ) {
-        if (customBitmap != null) {
-            Image(
-                bitmap = customBitmap.asImageBitmap(),
-                contentDescription = "桌宠小猫",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            Image(
-                painter = painterResource(id = catFrame),
-                contentDescription = "桌宠小猫",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
             )
         }
     }
