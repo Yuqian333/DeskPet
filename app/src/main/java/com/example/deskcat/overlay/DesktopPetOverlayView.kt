@@ -25,6 +25,7 @@ import com.example.deskcat.settings.PetImageResolver
 import com.example.deskcat.settings.PetPreferencesRepository
 import com.example.deskcat.settings.PetSettingsUiState
 import com.example.deskcat.settings.toAnimParams
+import com.example.deskcat.weather.WeatherRepositoryProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -94,8 +95,8 @@ class DesktopPetOverlayView(
         orientation = LinearLayout.HORIZONTAL
         visibility = View.GONE
         gravity = Gravity.CENTER
-        layoutParams = LinearLayout.LayoutParams(dp(260), LinearLayout.LayoutParams.WRAP_CONTENT)
-        minimumWidth = dp(260)
+        layoutParams = LinearLayout.LayoutParams(dp(320), LinearLayout.LayoutParams.WRAP_CONTENT)
+        minimumWidth = dp(320)
         setPadding(dp(10), dp(8), dp(10), dp(8))
         background = roundedDrawable(0xEEFFFFFF.toInt(), 18f, 0x22000000.toInt())
     }
@@ -108,6 +109,7 @@ class DesktopPetOverlayView(
         foregroundGravity = Gravity.CENTER
     }
     private val petImage = ImageView(context).apply {
+        layoutParams = FrameLayout.LayoutParams(dp(132), dp(132), Gravity.CENTER)
         scaleType = ImageView.ScaleType.FIT_CENTER
         adjustViewBounds = true
         setImageResource(R.drawable.cat5_re)
@@ -218,7 +220,6 @@ class DesktopPetOverlayView(
                     startAiFrameLoop(frames)
                 } else {
                     stopAiFrameLoop()
-                    // 恢复正常图片
                     updatePetImageFromSettings()
                 }
             }
@@ -430,7 +431,7 @@ class DesktopPetOverlayView(
             while (true) {
                 petImage.setImageBitmap(frames[index])
                 index = (index + 1) % frames.size
-                delay(125L) // 8fps
+                delay(125L)
             }
         }
     }
@@ -444,6 +445,12 @@ class DesktopPetOverlayView(
         actionRow.addView(createActionButton("喂食") { PetStateRepository.feed() })
         actionRow.addView(spaceView(dp(10), 1))
         actionRow.addView(createActionButton("玩耍") { PetStateRepository.play() })
+        actionRow.addView(spaceView(dp(10), 1))
+        actionRow.addView(createActionButton("天气") {
+            scope.launch {
+                WeatherRepositoryProvider.get(context).cachedOrRefreshSavedCity(speak = true)
+            }
+        })
         actionRow.addView(spaceView(dp(10), 1))
         actionRow.addView(createActionButton("打开") {
             val intent = Intent(context, MainActivity::class.java)
@@ -568,7 +575,7 @@ class DesktopPetOverlayView(
     private fun screenHeight(): Int = context.resources.displayMetrics.heightPixels
     private fun collapsedWidth(): Int = dp(132) + dp(16)
     private fun collapsedHeight(): Int = dp(132) + dp(16)
-    private fun expandedWidth(): Int = dp(260)
+    private fun expandedWidth(): Int = dp(320)
     private fun expandedHeight(): Int = collapsedHeight() + dp(96)
 
     private fun unspecifiedMeasureSpec(): Int =

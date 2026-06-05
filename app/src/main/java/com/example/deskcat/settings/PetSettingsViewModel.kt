@@ -32,7 +32,6 @@ class PetSettingsViewModel(
     private val _generatingAnim = MutableStateFlow(false)
     val generatingAnim: StateFlow<Boolean> = _generatingAnim.asStateFlow()
 
-    // 豆包生成的动画帧，null 表示未生成或已清除
     private val _aiAnimFrames = MutableStateFlow<List<Bitmap>?>(null)
     val aiAnimFrames: StateFlow<List<Bitmap>?> = _aiAnimFrames.asStateFlow()
 
@@ -87,7 +86,6 @@ class PetSettingsViewModel(
             val dir = PetPackLoader.importFromZip(context, zipUri)
             if (dir != null) {
                 repository.setPetPackDir(dir)
-                // 导入资源包后清除单图模式
                 repository.setImageUri(null)
             }
         }
@@ -110,10 +108,6 @@ class PetSettingsViewModel(
         }
     }
 
-    /**
-     * 根据当前自定义图片调用豆包 API 生成逐帧动画。
-     * 生成完成后帧列表通过 [aiAnimFrames] 暴露，overlay 和预览都可订阅播放。
-     */
     fun generateAiAnimation(context: Context) {
         val uri = uiState.value.imageUri ?: return
         viewModelScope.launch(Dispatchers.IO) {

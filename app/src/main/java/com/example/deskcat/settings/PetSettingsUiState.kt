@@ -14,10 +14,10 @@ enum class PetStyle {
 }
 
 data class PetAnimParams(
-    val bounceMagnitude: Float,   // 弹跳幅度倍率
-    val swingMagnitude: Float,    // 摇摆幅度倍率
-    val speedMultiplier: Float,   // 动画速度倍率
-    val tiltRange: Float,         // 倾斜角度范围
+    val bounceMagnitude: Float,
+    val swingMagnitude: Float,
+    val speedMultiplier: Float,
+    val tiltRange: Float,
 )
 
 fun PetStyle.toAnimParams(): PetAnimParams = when (this) {

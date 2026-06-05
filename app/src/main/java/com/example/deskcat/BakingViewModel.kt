@@ -1,6 +1,7 @@
 package com.example.deskcat
 
 import androidx.lifecycle.ViewModel
+import com.example.deskcat.pet.FoodItem
 import com.example.deskcat.pet.PetStateRepository
 import kotlinx.coroutines.flow.StateFlow
 
@@ -37,5 +38,17 @@ class BakingViewModel : ViewModel() {
 
     fun resetPosition() {
         PetStateRepository.resetPosition()
+    }
+
+    fun buyFood(food: FoodItem): Boolean {
+        return PetStateRepository.buyFood(food)
+    }
+
+    fun finishCoinGame(caughtCoins: Int): Int {
+        return PetStateRepository.finishCoinGame(caughtCoins)
+    }
+
+    fun setSpeech(speech: String) {
+        PetStateRepository.setSpeech(speech)
     }
 }

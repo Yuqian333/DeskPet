@@ -19,7 +19,7 @@ object OverlayNotificationFactory {
         val manager = context.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "桌宠悬浮服务",
+            context.getString(R.string.overlay_notification_channel),
             NotificationManager.IMPORTANCE_LOW,
         )
         manager.createNotificationChannel(channel)
@@ -36,8 +36,8 @@ object OverlayNotificationFactory {
 
         return Notification.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("桌宠运行中")
-            .setContentText("点击返回桌宠控制台")
+            .setContentTitle(context.getString(R.string.overlay_notification_title))
+            .setContentText(context.getString(R.string.overlay_notification_text))
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()

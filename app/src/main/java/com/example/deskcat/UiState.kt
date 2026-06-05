@@ -18,6 +18,7 @@ data class DesktopPetUiState(
     val hunger: Int = 35,
     val happiness: Int = 70,
     val energy: Int = 80,
+    val coins: Int = 1000,
     val petCount: Int = 0,
     val initialized: Boolean = false,
 )
