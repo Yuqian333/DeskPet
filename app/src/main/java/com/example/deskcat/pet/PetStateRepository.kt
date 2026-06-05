@@ -146,10 +146,10 @@ object PetStateRepository {
         )
     }
 
-    fun buyFood(food: FoodItem): Boolean {
+    fun buyFood(food: FoodItem, free: Boolean = false): Boolean {
         markUserInteraction()
         val current = _uiState.value
-        if (current.coins < food.price) {
+        if (!free && current.coins < food.price) {
             _uiState.value = current.copy(
                 mood = PetMood.Hungry,
                 speech = "金币不够，先玩一局吧。",
@@ -157,12 +157,13 @@ object PetStateRepository {
             return false
         }
 
+        val coinCost = if (free) 0 else food.price
         _uiState.value = current.copy(
             mood = if (food.happinessDelta >= 8) PetMood.Happy else PetMood.Chill,
             hunger = (current.hunger + food.hungerDelta).coerceIn(0, 100),
             happiness = (current.happiness + food.happinessDelta).coerceIn(0, 100),
             energy = (current.energy + food.energyDelta).coerceIn(0, 100),
-            coins = (current.coins - food.price).coerceIn(0, PetProgressRepository.MAX_COINS),
+            coins = (current.coins - coinCost).coerceIn(0, PetProgressRepository.MAX_COINS),
             petCount = current.petCount + 1,
             speech = food.successSpeech,
         )

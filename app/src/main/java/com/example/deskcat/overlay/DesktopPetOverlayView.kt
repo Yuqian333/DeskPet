@@ -138,6 +138,7 @@ class DesktopPetOverlayView(
     private var animationJob: Job? = null
     private var autoMoveJob: Job? = null
     private var pawAnimJob: Job? = null
+    private var edgeBlinkJob: Job? = null
     private var lastInteractionAt = System.currentTimeMillis()
 
     init {
@@ -239,6 +240,7 @@ class DesktopPetOverlayView(
         animationJob?.cancel()
         pawAnimJob?.cancel()
         aiFrameJob?.cancel()
+        edgeBlinkJob?.cancel()
         scope.cancel()
         if (!attached) return
         windowManager.removeView(rootView)
@@ -262,17 +264,33 @@ class DesktopPetOverlayView(
         autoMoveJob?.cancel()
         animationJob?.cancel()
         stopPawAnimation()
-        if (currentSettings.usePetPack || currentSettings.useCustomImage) {
-            updatePetImageFromSettings()
-        } else {
-            petImage.setImageResource(R.drawable.cat9_re)
-        }
+        startEdgeBlink()
         updateOverlayPosition()
+    }
+
+    private fun startEdgeBlink() {
+        edgeBlinkJob?.cancel()
+        edgeBlinkJob = scope.launch {
+            var showOpen = true
+            while (true) {
+                petImage.setImageResource(
+                    if (showOpen) R.drawable.cat_open else R.drawable.cat_close
+                )
+                showOpen = !showOpen
+                delay(3_000)
+            }
+        }
+    }
+
+    private fun stopEdgeBlink() {
+        edgeBlinkJob?.cancel()
+        edgeBlinkJob = null
     }
 
     private fun toggleExpanded() {
         expanded = !expanded
         collapsedToEdge = false
+        stopEdgeBlink()
         refreshExpandedViews()
         if (!expanded) {
             playMoodSequence(currentMood)
@@ -283,6 +301,7 @@ class DesktopPetOverlayView(
     private fun expandFromEdge() {
         collapsedToEdge = false
         expanded = true
+        stopEdgeBlink()
         overlayLayoutParams.x = if (dockOnRight) {
             clampX(screenWidth() - expandedWidth() - dp(12))
         } else {
@@ -306,12 +325,9 @@ class DesktopPetOverlayView(
             actionRow.visibility = View.GONE
             animationJob?.cancel()
             stopPawAnimation()
-            if (currentSettings.usePetPack || currentSettings.useCustomImage) {
-                updatePetImageFromSettings()
-            } else {
-                petImage.setImageResource(R.drawable.cat9_re)
-            }
+            startEdgeBlink()
         } else {
+            stopEdgeBlink()
             overlayLayoutParams.x = clampX(overlayLayoutParams.x)
             overlayLayoutParams.y = clampY(overlayLayoutParams.y)
             playMoodSequence(currentMood)

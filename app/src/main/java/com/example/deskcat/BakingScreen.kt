@@ -1,5 +1,13 @@
 package com.example.deskcat
 
+import android.R.attr.alpha
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -56,6 +65,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.deskcat.game.CoinCatchGame
 import com.example.deskcat.game.CoinGameResult
 import com.example.deskcat.game.CoinGameResultDialog
+import com.example.deskcat.game.SlotMachineGame
 import com.example.deskcat.pet.FoodItem
 import com.example.deskcat.pet.MiniGameItem
 import com.example.deskcat.pet.PetCatalog
@@ -69,6 +79,7 @@ import kotlin.math.roundToInt
 private enum class DeskCatScreenMode {
     Main,
     CoinGame,
+    SlotMachine,
 }
 
 @Composable
@@ -170,6 +181,18 @@ fun BakingScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
+            } else if (screenMode == DeskCatScreenMode.SlotMachine) {
+                SlotMachineGame(
+                    onWinFood = { food ->
+                        bakingViewModel.buyFood(food, free = true)
+                        bakingViewModel.setSpeech("三连！获得了${food.name}！")
+                    },
+                    onExit = {
+                        bakingViewModel.setSpeech("下次再来试试手气吧。")
+                        screenMode = DeskCatScreenMode.Main
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             } else {
                 HeaderCard(
                     uiState = uiState,
@@ -257,11 +280,18 @@ fun BakingScreen(
         if (showPlayMenu) {
             PlayMenuDialog(
                 onSelectGame = { game ->
-                    if (game.id == PetCatalog.COIN_CATCH_GAME_ID) {
-                        showPlayMenu = false
-                        screenMode = DeskCatScreenMode.CoinGame
-                    } else {
-                        bakingViewModel.setSpeech("${game.name}还在开发中，先玩接金币吧。")
+                    when (game.id) {
+                        PetCatalog.COIN_CATCH_GAME_ID -> {
+                            showPlayMenu = false
+                            screenMode = DeskCatScreenMode.CoinGame
+                        }
+                        PetCatalog.SLOT_MACHINE_GAME_ID -> {
+                            showPlayMenu = false
+                            screenMode = DeskCatScreenMode.SlotMachine
+                        }
+                        else -> {
+                            bakingViewModel.setSpeech("${game.name}还在开发中，先玩接金币吧。")
+                        }
                     }
                 },
                 onDismiss = { showPlayMenu = false },
@@ -553,7 +583,9 @@ private fun StatRow(label: String, value: Int) {
         }
         Spacer(modifier = Modifier.height(6.dp))
         Box(
-            modifier = Modifier.fillMaxWidth().height(10.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
                 .background(Color(0x33111111), RoundedCornerShape(999.dp)),
         ) {
             Box(
@@ -561,7 +593,12 @@ private fun StatRow(label: String, value: Int) {
                     .fillMaxWidth(value / 100f)
                     .height(10.dp)
                     .background(
-                        Brush.horizontalGradient(colors = listOf(Color(0xFF1B1B1B), Color(0xFFF2F2F2))),
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF1B1B1B),
+                                Color(0xFFF2F2F2)
+                            )
+                        ),
                         RoundedCornerShape(999.dp),
                     ),
             )
@@ -647,9 +684,13 @@ private fun MenuDialogCard(
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFEFCF7)),
         shape = RoundedCornerShape(28.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-        modifier = Modifier.fillMaxWidth().heightIn(max = 620.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 620.dp),
     ) {
-        Column(modifier = Modifier.padding(18.dp).verticalScroll(rememberScrollState())) {
+        Column(modifier = Modifier
+            .padding(18.dp)
+            .verticalScroll(rememberScrollState())) {
             Text(text = title, color = Color(0xFF111111), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = subtitle, color = Color(0xFF666666), style = MaterialTheme.typography.bodyMedium)
@@ -700,7 +741,9 @@ private fun MenuItemCard(
         colors = CardDefaults.cardColors(containerColor = if (locked) Color(0xFFF0EEE9) else Color(0xFFFFFFFF)),
         shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick),
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(contentAlignment = Alignment.BottomEnd) {

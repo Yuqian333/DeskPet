@@ -24,6 +24,7 @@ data class MiniGameItem(
 
 object PetCatalog {
     const val COIN_CATCH_GAME_ID = "coin_catch"
+    const val SLOT_MACHINE_GAME_ID = "slot_machine"
 
     val foods = listOf(
         FoodItem(
@@ -99,11 +100,11 @@ object PetCatalog {
             enabled = false,
         ),
         MiniGameItem(
-            id = "card_match",
-            name = "翻牌找食物",
-            description = "待开发",
+            id = SLOT_MACHINE_GAME_ID,
+            name = "食物老虎机",
+            description = "拉动摇杆，三张一致即可免费获得该食物！",
             iconRes = R.drawable.game_card_match,
-            enabled = false,
+            enabled = true,
         ),
     )
 }

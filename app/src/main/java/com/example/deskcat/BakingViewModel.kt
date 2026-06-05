@@ -40,8 +40,8 @@ class BakingViewModel : ViewModel() {
         PetStateRepository.resetPosition()
     }
 
-    fun buyFood(food: FoodItem): Boolean {
-        return PetStateRepository.buyFood(food)
+    fun buyFood(food: FoodItem, free: Boolean = false): Boolean {
+        return PetStateRepository.buyFood(food, free)
     }
 
     fun finishCoinGame(caughtCoins: Int): Int {
