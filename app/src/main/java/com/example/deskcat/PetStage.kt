@@ -1,5 +1,6 @@
 package com.example.deskcat
 
+import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -22,7 +23,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -34,11 +39,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
 import com.example.deskcat.settings.PetImageResolver
 import com.example.deskcat.settings.PetSettingsUiState
 import kotlin.math.roundToInt
@@ -47,6 +52,7 @@ import kotlin.math.roundToInt
 fun PetStage(
     uiState: DesktopPetUiState,
     settingsState: PetSettingsUiState,
+    aiAnimFrames: List<Bitmap>? = null,
     stageHeight: Dp,
     floatOffset: Float,
     bobAmplitude: Float,
@@ -120,6 +126,7 @@ fun PetStage(
                             StagePetAvatar(
                                 mood = uiState.mood,
                                 settingsState = settingsState,
+                                aiAnimFrames = aiAnimFrames,
                                 scale = petScale,
                                 rotation = petRotation,
                                 phase = floatOffset,
@@ -158,6 +165,7 @@ fun BoxScope.StageBackgroundGlow() {
 fun StagePetAvatar(
     mood: PetMood,
     settingsState: PetSettingsUiState,
+    aiAnimFrames: List<Bitmap>? = null,
     scale: Float,
     rotation: Float,
     phase: Float,
@@ -169,6 +177,15 @@ fun StagePetAvatar(
     }
     val customBitmap = remember(settingsState.imageUri, targetImageSizePx) {
         PetImageResolver.decodeBitmap(context, settingsState.imageUri, targetImageSizePx)
+    }
+
+    var aiFrameIndex by remember { mutableIntStateOf(0) }
+    LaunchedEffect(aiAnimFrames) {
+        if (aiAnimFrames.isNullOrEmpty()) { aiFrameIndex = 0; return@LaunchedEffect }
+        while (true) {
+            kotlinx.coroutines.delay(125L)
+            aiFrameIndex = (aiFrameIndex + 1) % aiAnimFrames.size
+        }
     }
     val appliedScale = scale * settingsState.sizeScale
     val catFrame = when (mood) {
@@ -240,15 +257,20 @@ fun StagePetAvatar(
         },
         contentAlignment = Alignment.Center,
     ) {
-        if (customBitmap != null) {
-            Image(
+        when {
+            !aiAnimFrames.isNullOrEmpty() -> Image(
+                bitmap = aiAnimFrames[aiFrameIndex].asImageBitmap(),
+                contentDescription = "桌宠小猫",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+            customBitmap != null -> Image(
                 bitmap = customBitmap.asImageBitmap(),
                 contentDescription = "桌宠小猫",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
-        } else {
-            Image(
+            else -> Image(
                 painter = painterResource(id = catFrame),
                 contentDescription = "桌宠小猫",
                 contentScale = ContentScale.Fit,
