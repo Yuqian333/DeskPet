@@ -6,6 +6,9 @@ enum class PetSizePreset {
     Large,
 }
 
+const val PET_SIZE_SCALE_MIN = 0.5f
+const val PET_SIZE_SCALE_MAX = 1.2f
+
 enum class PetStyle {
     Cat,    // 慵懒：缓慢摇摆，低频弹跳
     Dog,    // 活泼：快速弹跳，大幅摇摆

@@ -39,7 +39,7 @@ class PetPreferencesRepository(private val context: Context) {
 
     suspend fun setSizeScale(scale: Float) {
         context.petSettingsDataStore.edit { preferences ->
-            preferences[Keys.sizeScale] = scale
+            preferences[Keys.sizeScale] = scale.coerceIn(PET_SIZE_SCALE_MIN, PET_SIZE_SCALE_MAX)
         }
     }
 
@@ -87,7 +87,7 @@ class PetPreferencesRepository(private val context: Context) {
 
         return PetSettingsUiState(
             imageUri = this[Keys.imageUri],
-            sizeScale = this[Keys.sizeScale] ?: 1f,
+            sizeScale = (this[Keys.sizeScale] ?: 1f).coerceIn(PET_SIZE_SCALE_MIN, PET_SIZE_SCALE_MAX),
             sizePreset = preset,
             autoMoveEnabled = this[Keys.autoMoveEnabled] ?: true,
             petStyle = style,

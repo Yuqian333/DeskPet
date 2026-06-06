@@ -58,10 +58,14 @@ class WeatherRepository(
         val cached = cachedReport
         val freshEnough = cached != null && System.currentTimeMillis() - cachedAtMillis < CACHE_TTL_MILLIS
         if (freshEnough) {
+            val report = cached ?: return Result.failure(IllegalStateException("天气缓存不可用。"))
             if (speak) {
-                PetStateRepository.setSpeech(cached!!.toPetSpeech())
+                PetStateRepository.reactToWeather(
+                    mood = report.petMood(),
+                    speech = report.toPetSpeech(),
+                )
             }
-            return Result.success(cached!!)
+            return Result.success(report)
         }
         val city = preferencesRepository.settingsFlow.first().city
         return refreshCity(city, speak)
@@ -86,6 +90,8 @@ class WeatherRepository(
     private fun applyResult(result: Result<WeatherReport>, speak: Boolean) {
         result.fold(
             onSuccess = { report ->
+                val previous = cachedReport
+                val speech = report.specialSpeechComparedTo(previous) ?: report.toPetSpeech()
                 cachedReport = report
                 cachedAtMillis = System.currentTimeMillis()
                 _uiState.update {
@@ -96,7 +102,10 @@ class WeatherRepository(
                     )
                 }
                 if (speak) {
-                    PetStateRepository.setSpeech(report.toPetSpeech())
+                    PetStateRepository.reactToWeather(
+                        mood = report.petMood(),
+                        speech = speech,
+                    )
                 }
             },
             onFailure = { error ->

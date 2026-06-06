@@ -1,7 +1,11 @@
 package com.example.deskcat
 
 import android.graphics.Bitmap
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -111,8 +115,17 @@ fun PetStage(
                         },
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        AnimatedVisibility(visible = uiState.speech.isNotBlank()) {
-                            StageSpeechBubble(text = uiState.speech)
+                        AnimatedContent(
+                            targetState = uiState.speech,
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(180)) togetherWith
+                                    fadeOut(animationSpec = tween(120))
+                            },
+                            label = "speechBubble",
+                        ) { speech ->
+                            if (speech.isNotBlank()) {
+                                StageSpeechBubble(text = speech)
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))

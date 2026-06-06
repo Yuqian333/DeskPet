@@ -95,14 +95,14 @@ object PetCatalog {
         MiniGameItem(
             id = "teaser_wand",
             name = "逗猫棒",
-            description = "待开发",
+            description = "待开放",
             iconRes = R.drawable.game_teaser_wand,
             enabled = false,
         ),
         MiniGameItem(
             id = SLOT_MACHINE_GAME_ID,
             name = "食物老虎机",
-            description = "拉动摇杆，三张一致即可免费获得该食物！",
+            description = "拉动摇杆，三个图案一致即可免费获得食物。",
             iconRes = R.drawable.game_card_match,
             enabled = true,
         ),

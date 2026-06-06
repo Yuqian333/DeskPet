@@ -1,6 +1,5 @@
 package com.example.deskcat
 
-import android.R.attr.alpha
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -16,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,7 +34,11 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -51,13 +55,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -72,6 +76,8 @@ import com.example.deskcat.pet.PetCatalog
 import com.example.deskcat.settings.PetSettingsUiState
 import com.example.deskcat.settings.PetSettingsViewModel
 import com.example.deskcat.settings.PetSizePreset
+import com.example.deskcat.settings.PET_SIZE_SCALE_MAX
+import com.example.deskcat.settings.PET_SIZE_SCALE_MIN
 import com.example.deskcat.settings.PetStyle
 import com.example.deskcat.weather.WeatherViewModel
 import kotlin.math.roundToInt
@@ -80,6 +86,12 @@ private enum class DeskCatScreenMode {
     Main,
     CoinGame,
     SlotMachine,
+}
+
+private enum class DeskCatTab(val label: String, val iconRes: Int) {
+    Pet("宠物", R.drawable.ic_tab_pet),
+    Weather("天气", R.drawable.ic_tab_weather),
+    Settings("设置", R.drawable.ic_tab_settings),
 }
 
 @Composable
@@ -103,8 +115,7 @@ fun BakingScreen(
     val generatingAnim by settingsViewModel.generatingAnim.collectAsState()
     val aiAnimFrames by settingsViewModel.aiAnimFrames.collectAsState()
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
-    var settingsExpanded by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(DeskCatTab.Pet) }
     var screenMode by remember { mutableStateOf(DeskCatScreenMode.Main) }
     var showFoodMenu by remember { mutableStateOf(false) }
     var showPlayMenu by remember { mutableStateOf(false) }
@@ -135,10 +146,14 @@ fun BakingScreen(
             ),
     ) {
         val compact = maxWidth < 360.dp || maxHeight < 700.dp
-        val pagePadding = if (compact) 14.dp else 18.dp
-        val cardSpacing = if (compact) 10.dp else 14.dp
+        val pagePadding = if (compact) 12.dp else 16.dp
+        val cardSpacing = if (compact) 8.dp else 10.dp
         val bobAmplitude = if (compact) 4f else 6f
-        val stageHeight = if (compact) 250.dp else (maxHeight * 0.56f).coerceAtLeast(300.dp)
+        val stageHeight = if (compact) {
+            (maxHeight * 0.48f).coerceIn(280.dp, 360.dp)
+        } else {
+            (maxHeight * 0.55f).coerceIn(360.dp, 520.dp)
+        }
         val density = LocalDensity.current
         val stageWidthPx = with(density) { (maxWidth - pagePadding * 2 - 24.dp).toPx().coerceAtLeast(0f) }
         val stageHeightPx = with(density) { (stageHeight - 24.dp).toPx().coerceAtLeast(0f) }
@@ -157,16 +172,8 @@ fun BakingScreen(
             }
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .verticalScroll(scrollState)
-                .padding(pagePadding),
-            verticalArrangement = Arrangement.spacedBy(cardSpacing),
-        ) {
-            if (screenMode == DeskCatScreenMode.CoinGame) {
+        if (screenMode == DeskCatScreenMode.CoinGame) {
+            GameSurface(pagePadding = pagePadding) {
                 CoinCatchGame(
                     settingsState = settingsState,
                     uiState = uiState,
@@ -174,46 +181,93 @@ fun BakingScreen(
                         val earnedCoins = bakingViewModel.finishCoinGame(caughtCoins)
                         coinGameResult = CoinGameResult(caughtCoins, earnedCoins)
                         screenMode = DeskCatScreenMode.Main
+                        selectedTab = DeskCatTab.Pet
                     },
                     onExit = {
                         bakingViewModel.setSpeech("这局先暂停，下次继续接金币。")
                         screenMode = DeskCatScreenMode.Main
+                        selectedTab = DeskCatTab.Pet
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
-            } else if (screenMode == DeskCatScreenMode.SlotMachine) {
+            }
+        } else if (screenMode == DeskCatScreenMode.SlotMachine) {
+            GameSurface(pagePadding = pagePadding) {
                 SlotMachineGame(
                     onWinFood = { food ->
                         bakingViewModel.buyFood(food, free = true)
                         bakingViewModel.setSpeech("三连！获得了${food.name}！")
                     },
                     onExit = {
-                        bakingViewModel.setSpeech("下次再来试试手气吧。")
+                        bakingViewModel.setSpeech("下次再来试试手气。")
                         screenMode = DeskCatScreenMode.Main
+                        selectedTab = DeskCatTab.Pet
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
-            } else {
-                HeaderCard(
-                    uiState = uiState,
-                    settingsState = settingsState,
-                    overlayGranted = overlayGranted,
-                    overlayRunning = overlayRunning,
-                    onToggleSettings = { settingsExpanded = !settingsExpanded },
-                    onStartOverlay = onStartOverlay,
-                    onStopOverlay = onStopOverlay,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                WeatherCard(
-                    weatherState = weatherState,
-                    onAskWeather = { weatherViewModel.refreshManualWeather(speak = true) },
-                    onUseDeviceLocation = requestDeviceWeather,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                if (settingsExpanded) {
-                    PetSettingsPanel(
+            }
+        } else {
+            Scaffold(
+                containerColor = Color.Transparent,
+                bottomBar = {
+                    NavigationBar(
+                        containerColor = Color(0xF7FFFFFF),
+                        tonalElevation = 0.dp,
+                    ) {
+                        DeskCatTab.entries.forEach { tab ->
+                            NavigationBarItem(
+                                selected = selectedTab == tab,
+                                onClick = { selectedTab = tab },
+                                icon = {
+                                    Icon(
+                                        painter = painterResource(id = tab.iconRes),
+                                        contentDescription = tab.label,
+                                    )
+                                },
+                                label = { Text(tab.label) },
+                                alwaysShowLabel = true,
+                            )
+                        }
+                    }
+                },
+            ) { innerPadding ->
+                when (selectedTab) {
+                    DeskCatTab.Pet -> PetHomeTab(
+                        innerPadding = innerPadding,
+                        pagePadding = pagePadding,
+                        cardSpacing = cardSpacing,
+                        stageHeight = stageHeight,
+                        floatOffset = floatOffset,
+                        bobAmplitude = bobAmplitude,
+                        uiState = uiState,
+                        settingsState = settingsState,
+                        aiAnimFrames = aiAnimFrames,
+                        onDragPet = bakingViewModel::dragPet,
+                        onPet = bakingViewModel::pet,
+                        onFeed = { showFoodMenu = true },
+                        onPlay = { showPlayMenu = true },
+                        onRest = bakingViewModel::rest,
+                        onReset = bakingViewModel::resetPosition,
+                    )
+                    DeskCatTab.Weather -> WeatherTab(
+                        innerPadding = innerPadding,
+                        pagePadding = pagePadding,
+                        cardSpacing = cardSpacing,
+                        weatherState = weatherState,
+                        onAskWeather = { weatherViewModel.refreshManualWeather(speak = true) },
+                        onUseDeviceLocation = requestDeviceWeather,
+                        onCityChange = weatherViewModel::updateCityInput,
+                        onSaveCity = { weatherViewModel.refreshManualWeather(speak = true) },
+                    )
+                    DeskCatTab.Settings -> SettingsTab(
+                        innerPadding = innerPadding,
+                        pagePadding = pagePadding,
+                        cardSpacing = cardSpacing,
+                        overlayGranted = overlayGranted,
+                        overlayRunning = overlayRunning,
+                        onOpenOverlayPermission = onOpenOverlayPermission,
+                        onStartOverlay = onStartOverlay,
+                        onStopOverlay = onStopOverlay,
                         settingsState = settingsState,
                         analyzing = analyzing,
                         generatingAnim = generatingAnim,
@@ -238,35 +292,8 @@ fun BakingScreen(
                         },
                         onScaleChange = settingsViewModel::setSizeScale,
                         onAutoMoveChange = settingsViewModel::setAutoMoveEnabled,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        WeatherSettingsSection(
-                            weatherState = weatherState,
-                            onCityChange = weatherViewModel::updateCityInput,
-                            onSaveCity = { weatherViewModel.refreshManualWeather(speak = true) },
-                            onUseDeviceLocation = requestDeviceWeather,
-                        )
-                    }
+                    )
                 }
-
-                PetStage(
-                    uiState = uiState,
-                    settingsState = settingsState,
-                    aiAnimFrames = aiAnimFrames,
-                    stageHeight = stageHeight,
-                    floatOffset = floatOffset,
-                    bobAmplitude = bobAmplitude,
-                    onDragPet = bakingViewModel::dragPet,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                DesktopActionPanel(
-                    onPet = bakingViewModel::pet,
-                    onFeed = { showFoodMenu = true },
-                    onPlay = { showPlayMenu = true },
-                    onRest = bakingViewModel::rest,
-                    onReset = bakingViewModel::resetPosition,
-                )
             }
         }
 
@@ -307,6 +334,294 @@ fun BakingScreen(
 }
 
 @Composable
+private fun GameSurface(
+    pagePadding: androidx.compose.ui.unit.Dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(pagePadding),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        content = content,
+    )
+}
+
+@Composable
+private fun PetHomeTab(
+    innerPadding: PaddingValues,
+    pagePadding: androidx.compose.ui.unit.Dp,
+    cardSpacing: androidx.compose.ui.unit.Dp,
+    stageHeight: androidx.compose.ui.unit.Dp,
+    floatOffset: Float,
+    bobAmplitude: Float,
+    uiState: DesktopPetUiState,
+    settingsState: PetSettingsUiState,
+    aiAnimFrames: List<android.graphics.Bitmap>?,
+    onDragPet: (Float, Float) -> Unit,
+    onPet: () -> Unit,
+    onFeed: () -> Unit,
+    onPlay: () -> Unit,
+    onRest: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+            .statusBarsPadding()
+            .padding(start = pagePadding, end = pagePadding, bottom = pagePadding, top = 6.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(cardSpacing),
+    ) {
+        PetStatusCard(uiState = uiState, modifier = Modifier.fillMaxWidth())
+        DesktopActionPanel(
+            onPet = onPet,
+            onFeed = onFeed,
+            onPlay = onPlay,
+            onRest = onRest,
+            onReset = onReset,
+        )
+        PetStage(
+            uiState = uiState,
+            settingsState = settingsState,
+            aiAnimFrames = aiAnimFrames,
+            stageHeight = stageHeight,
+            floatOffset = floatOffset,
+            bobAmplitude = bobAmplitude,
+            onDragPet = onDragPet,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun WeatherTab(
+    innerPadding: PaddingValues,
+    pagePadding: androidx.compose.ui.unit.Dp,
+    cardSpacing: androidx.compose.ui.unit.Dp,
+    weatherState: com.example.deskcat.weather.WeatherUiState,
+    onAskWeather: () -> Unit,
+    onUseDeviceLocation: () -> Unit,
+    onCityChange: (String) -> Unit,
+    onSaveCity: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(pagePadding),
+        verticalArrangement = Arrangement.spacedBy(cardSpacing),
+    ) {
+        SectionTitle(title = "天气", subtitle = "让小猫按当前天气给你一句提醒")
+        WeatherCard(
+            weatherState = weatherState,
+            onAskWeather = onAskWeather,
+            onUseDeviceLocation = onUseDeviceLocation,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        WeatherSettingsSection(
+            weatherState = weatherState,
+            onCityChange = onCityChange,
+            onSaveCity = onSaveCity,
+            onUseDeviceLocation = onUseDeviceLocation,
+        )
+    }
+}
+
+@Composable
+private fun SettingsTab(
+    innerPadding: PaddingValues,
+    pagePadding: androidx.compose.ui.unit.Dp,
+    cardSpacing: androidx.compose.ui.unit.Dp,
+    overlayGranted: Boolean,
+    overlayRunning: Boolean,
+    onOpenOverlayPermission: () -> Unit,
+    onStartOverlay: () -> Unit,
+    onStopOverlay: () -> Unit,
+    settingsState: PetSettingsUiState,
+    analyzing: Boolean,
+    generatingAnim: Boolean,
+    hasAiAnim: Boolean,
+    onPickCustomImage: () -> Unit,
+    onResetImage: () -> Unit,
+    onImportPetPack: () -> Unit,
+    onClearPetPack: () -> Unit,
+    onGenerateAiAnim: () -> Unit,
+    onClearAiAnim: () -> Unit,
+    onSelectPreset: (PetSizePreset, Float) -> Unit,
+    onScaleChange: (Float) -> Unit,
+    onAutoMoveChange: (Boolean) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(pagePadding),
+        verticalArrangement = Arrangement.spacedBy(cardSpacing),
+    ) {
+        SectionTitle(title = "设置", subtitle = "管理悬浮窗、形象、资源包和动画")
+        OverlaySettingsCard(
+            overlayGranted = overlayGranted,
+            overlayRunning = overlayRunning,
+            onOpenOverlayPermission = onOpenOverlayPermission,
+            onStartOverlay = onStartOverlay,
+            onStopOverlay = onStopOverlay,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        PetSettingsPanel(
+            settingsState = settingsState,
+            analyzing = analyzing,
+            generatingAnim = generatingAnim,
+            hasAiAnim = hasAiAnim,
+            onPickCustomImage = onPickCustomImage,
+            onResetImage = onResetImage,
+            onImportPetPack = onImportPetPack,
+            onClearPetPack = onClearPetPack,
+            onGenerateAiAnim = onGenerateAiAnim,
+            onClearAiAnim = onClearAiAnim,
+            onSelectPreset = onSelectPreset,
+            onScaleChange = onScaleChange,
+            onAutoMoveChange = onAutoMoveChange,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun SectionTitle(title: String, subtitle: String) {
+    Column {
+        Text(
+            text = title,
+            color = Color(0xFF111111),
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        Spacer(modifier = Modifier.height(3.dp))
+        Text(
+            text = subtitle,
+            color = Color(0xFF555555),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+private fun PetStatusCard(
+    uiState: DesktopPetUiState,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xEEFFFFFF)),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        modifier = modifier,
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "桌宠喵",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111111),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    MoodBadge(mood = uiState.mood)
+                }
+                Text(
+                    text = "互动 ${uiState.petCount} 次",
+                    color = Color(0xFF666666),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                CoinPill(coins = uiState.coins, modifier = Modifier.weight(1.05f))
+                CompactStatPill(label = "饱腹", value = uiState.hunger, modifier = Modifier.weight(1f))
+                CompactStatPill(label = "开心", value = uiState.happiness, modifier = Modifier.weight(1f))
+                CompactStatPill(label = "精力", value = uiState.energy, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverlaySettingsCard(
+    overlayGranted: Boolean,
+    overlayRunning: Boolean,
+    onOpenOverlayPermission: () -> Unit,
+    onStartOverlay: () -> Unit,
+    onStopOverlay: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xEEFFFFFF)),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        modifier = modifier,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "桌面悬浮", color = Color(0xFF111111), fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = when {
+                            overlayRunning -> "悬浮宠物正在运行"
+                            overlayGranted -> "已获得悬浮窗权限"
+                            else -> "需要先开启悬浮窗权限"
+                        },
+                        color = Color(0xFF666666),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                AssistChip(
+                    onClick = if (overlayRunning) onStopOverlay else onStartOverlay,
+                    label = { Text(if (overlayRunning) "关闭" else "开启") },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = Color(0xFFF7F4EE),
+                        labelColor = Color(0xFF111111),
+                    ),
+                )
+            }
+            if (!overlayGranted) {
+                Spacer(modifier = Modifier.height(8.dp))
+                AssistChip(
+                    onClick = onOpenOverlayPermission,
+                    label = { Text("去授权") },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = Color(0xFFF1E7D7),
+                        labelColor = Color(0xFF111111),
+                    ),
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun PetSettingsPanel(
     settingsState: PetSettingsUiState,
     analyzing: Boolean,
@@ -322,7 +637,6 @@ private fun PetSettingsPanel(
     onScaleChange: (Float) -> Unit,
     onAutoMoveChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    weatherContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xEEFFFFFF)),
@@ -331,14 +645,17 @@ private fun PetSettingsPanel(
         modifier = modifier,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "桌宠设置", color = Color(0xFF111111), fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(10.dp))
+            Text(text = "形象与动画", color = Color(0xFF111111), fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // 资源包区域
             Text(text = "动画资源包", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = if (settingsState.usePetPack) "已加载资源包（body + paw_up + paw_down）" else "未加载资源包，使用内置动画",
+                text = if (settingsState.usePetPack) {
+                    "已加载资源包：body + paw_up + paw_down"
+                } else {
+                    "未加载资源包，当前使用内置动画"
+                },
                 color = Color(0xFF444444),
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -346,7 +663,7 @@ private fun PetSettingsPanel(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 AssistChip(
                     onClick = onImportPetPack,
-                    label = { Text("导入资源包 (.zip)") },
+                    label = { Text("导入资源包") },
                     colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFF1E7D7), labelColor = Color(0xFF111111)),
                 )
                 if (settingsState.usePetPack) {
@@ -359,26 +676,10 @@ private fun PetSettingsPanel(
             }
 
             Spacer(modifier = Modifier.height(14.dp))
-
-            // 单图模式
-            Text(text = "单张图片模式", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
+            Text(text = "单张图片", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(6.dp))
-            val statusText = when {
-                analyzing -> "正在识别宠物并处理图片..."
-                settingsState.useCustomImage && settingsState.detectedLabel != null -> {
-                    val styleName = when (settingsState.petStyle) {
-                        PetStyle.Cat -> "猫咪（慵懒风格）"
-                        PetStyle.Dog -> "狗狗（活泼风格）"
-                        PetStyle.Rabbit -> "兔子（温柔风格）"
-                        PetStyle.Default -> "未知宠物（默认风格）"
-                    }
-                    "已识别：${settingsState.detectedLabel} → $styleName"
-                }
-                settingsState.useCustomImage -> "当前使用自定义图片"
-                else -> "当前使用内置动画图片"
-            }
             Text(
-                text = statusText,
+                text = imageStatusText(settingsState, analyzing),
                 color = if (analyzing) Color(0xFF888888) else Color(0xFF444444),
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -386,7 +687,7 @@ private fun PetSettingsPanel(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 AssistChip(
                     onClick = { if (!analyzing) onPickCustomImage() },
-                    label = { Text(if (analyzing) "识别中..." else "选择图片") },
+                    label = { Text(if (analyzing) "识别中" else "选择图片") },
                     colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFF1E7D7), labelColor = Color(0xFF111111)),
                 )
                 AssistChip(
@@ -396,16 +697,15 @@ private fun PetSettingsPanel(
                 )
             }
 
-            // AI 动画生成区域
             if (settingsState.useCustomImage) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(text = "AI 动画生成", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(text = "AI 动画", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = when {
-                        generatingAnim -> "正在调用豆包 AI 生成动画帧..."
+                        generatingAnim -> "正在调用豆包 AI 生成动画帧"
                         hasAiAnim -> "已生成 AI 动画，正在预览播放"
-                        else -> "基于当前图片，用豆包 AI 生成逐帧动画"
+                        else -> "基于当前图片生成逐帧动画"
                     },
                     color = if (generatingAnim) Color(0xFF888888) else Color(0xFF444444),
                     style = MaterialTheme.typography.bodySmall,
@@ -414,7 +714,7 @@ private fun PetSettingsPanel(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     AssistChip(
                         onClick = { if (!generatingAnim && !analyzing) onGenerateAiAnim() },
-                        label = { Text(if (generatingAnim) "生成中..." else "生成动画") },
+                        label = { Text(if (generatingAnim) "生成中" else "生成动画") },
                         colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFF1E7D7), labelColor = Color(0xFF111111)),
                     )
                     if (hasAiAnim) {
@@ -428,32 +728,23 @@ private fun PetSettingsPanel(
             }
 
             Spacer(modifier = Modifier.height(14.dp))
-            Text(text = "桌宠大小", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
+            Text(text = "大小", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                AssistChip(
-                    onClick = { onSelectPreset(PetSizePreset.Small, 0.85f) },
-                    label = { Text("小") },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (settingsState.sizePreset == PetSizePreset.Small) Color(0xFFF7F4EE) else Color(0xFFF1E7D7),
-                        labelColor = Color(0xFF111111),
-                    ),
+                SizeChip(
+                    text = "小",
+                    selected = settingsState.sizePreset == PetSizePreset.Small,
+                    onClick = { onSelectPreset(PetSizePreset.Small, 0.7f) },
                 )
-                AssistChip(
+                SizeChip(
+                    text = "中",
+                    selected = settingsState.sizePreset == PetSizePreset.Medium,
                     onClick = { onSelectPreset(PetSizePreset.Medium, 1f) },
-                    label = { Text("中") },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (settingsState.sizePreset == PetSizePreset.Medium) Color(0xFFF7F4EE) else Color(0xFFF1E7D7),
-                        labelColor = Color(0xFF111111),
-                    ),
                 )
-                AssistChip(
+                SizeChip(
+                    text = "大",
+                    selected = settingsState.sizePreset == PetSizePreset.Large,
                     onClick = { onSelectPreset(PetSizePreset.Large, 1.2f) },
-                    label = { Text("大") },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (settingsState.sizePreset == PetSizePreset.Large) Color(0xFFF7F4EE) else Color(0xFFF1E7D7),
-                        labelColor = Color(0xFF111111),
-                    ),
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -462,159 +753,140 @@ private fun PetSettingsPanel(
                 color = Color(0xFF444444),
                 style = MaterialTheme.typography.bodySmall,
             )
-            Slider(value = settingsState.sizeScale, onValueChange = onScaleChange, valueRange = 0.8f..1.4f)
-            Spacer(modifier = Modifier.height(8.dp))
+            Slider(
+                value = settingsState.sizeScale,
+                onValueChange = onScaleChange,
+                valueRange = PET_SIZE_SCALE_MIN..PET_SIZE_SCALE_MAX,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column {
-                    Text(text = "自动移动彩蛋", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "自动移动", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
                     Text(
-                        text = "3 秒不拖动时，小猫会轻微自己动一下。",
+                        text = "不拖动时，小猫会轻微自己动一下",
                         color = Color(0xFF666666),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 Switch(checked = settingsState.autoMoveEnabled, onCheckedChange = onAutoMoveChange)
             }
-            weatherContent()
         }
     }
 }
 
-@Composable
-private fun HeaderCard(
-    uiState: DesktopPetUiState,
-    settingsState: PetSettingsUiState,
-    overlayGranted: Boolean,
-    overlayRunning: Boolean,
-    onToggleSettings: () -> Unit,
-    onStartOverlay: () -> Unit,
-    onStopOverlay: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xEEFFFFFF)),
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        modifier = modifier,
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "桌宠喵",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111111),
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    MoodBadge(mood = uiState.mood)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AssistChip(
-                        onClick = onToggleSettings,
-                        label = { Text("设置") },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = if (settingsState.useCustomImage) Color(0xFFF1E7D7) else Color(0xFFE8E2D8),
-                            labelColor = Color(0xFF111111),
-                        ),
-                    )
-                    AssistChip(
-                        onClick = if (overlayRunning) onStopOverlay else onStartOverlay,
-                        label = { Text(if (overlayRunning) "关闭" else "开启") },
-                        colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFF7F4EE), labelColor = Color(0xFF111111)),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "拖动我到处走走，摸摸、喂食、玩耍、休息都会影响我的状态。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF444444),
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(text = "互动 ${uiState.petCount} 次", color = Color(0xFF666666), fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.height(12.dp))
-            CoinRow(coins = uiState.coins)
-            Spacer(modifier = Modifier.height(10.dp))
-            StatRow(label = "饱腹", value = uiState.hunger)
-            StatRow(label = "开心", value = uiState.happiness)
-            StatRow(label = "精力", value = uiState.energy)
-        }
+private fun imageStatusText(settingsState: PetSettingsUiState, analyzing: Boolean): String {
+    if (analyzing) return "正在识别宠物并处理图片"
+    if (!settingsState.useCustomImage) return "当前使用内置动画图片"
+    val label = settingsState.detectedLabel
+    if (label.isNullOrBlank()) return "当前使用自定义图片"
+    val styleName = when (settingsState.petStyle) {
+        PetStyle.Cat -> "猫"
+        PetStyle.Dog -> "狗"
+        PetStyle.Rabbit -> "兔子"
+        PetStyle.Default -> "默认"
     }
+    return "已识别：$label，动画风格：$styleName"
 }
 
 @Composable
-private fun CoinRow(coins: Int) {
+private fun SizeChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(text) },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = if (selected) Color(0xFFF7F4EE) else Color(0xFFF1E7D7),
+            labelColor = Color(0xFF111111),
+        ),
+    )
+}
+
+@Composable
+private fun CoinPill(coins: Int, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .background(Color(0x22F0C24B), RoundedCornerShape(16.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.Center,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                painter = painterResource(id = R.drawable.icon_coin),
-                contentDescription = "金币",
-                modifier = Modifier.size(30.dp),
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "金币", color = Color(0xFF333333), fontWeight = FontWeight.SemiBold)
-        }
-        Text(text = coins.toString(), color = Color(0xFF111111), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Image(
+            painter = painterResource(id = R.drawable.icon_coin),
+            contentDescription = "金币",
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(modifier = Modifier.width(5.dp))
+        Text(
+            text = coins.toString(),
+            color = Color(0xFF111111),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+        )
     }
 }
 
 @Composable
-private fun StatRow(label: String, value: Int) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = label, color = Color(0xFF333333), fontSize = 13.sp)
-            Text(text = "$value%", color = Color(0xFF333333), fontSize = 13.sp)
-        }
-        Spacer(modifier = Modifier.height(6.dp))
+private fun CompactStatPill(label: String, value: Int, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .background(Color(0x22FFFFFF), RoundedCornerShape(16.dp))
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "$value",
+            color = Color(0xFF111111),
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+        )
+        Spacer(modifier = Modifier.height(5.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(10.dp)
+                .height(6.dp)
                 .background(Color(0x33111111), RoundedCornerShape(999.dp)),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(value / 100f)
-                    .height(10.dp)
+                    .height(6.dp)
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
                                 Color(0xFF1B1B1B),
-                                Color(0xFFF2F2F2)
-                            )
+                                Color(0xFFF2F2F2),
+                            ),
                         ),
                         RoundedCornerShape(999.dp),
                     ),
             )
         }
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            color = Color(0xFF555555),
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+        )
     }
 }
 
 @Composable
 private fun MoodBadge(mood: PetMood) {
     val (text, background) = when (mood) {
-        PetMood.Sleepy -> "想睡觉" to Color(0xFFD7D7D7)
-        PetMood.Chill -> "很放松" to Color(0xFFEAEAEA)
-        PetMood.Happy -> "心情好" to Color(0xFFF6F6F6)
-        PetMood.Excited -> "很兴奋" to Color(0xFFFFFFFF)
-        PetMood.Hungry -> "有点饿" to Color(0xFFD1CDC5)
+        PetMood.Sleepy -> "呼噜呼噜" to Color(0xFFD7D7D7)
+        PetMood.Chill -> "放松" to Color(0xFFEAEAEA)
+        PetMood.Happy -> "开心" to Color(0xFFF6F6F6)
+        PetMood.Excited -> "兴奋" to Color(0xFFFFFFFF)
+        PetMood.Hungry -> "饿了" to Color(0xFFD1CDC5)
     }
     Surface(color = background, shape = RoundedCornerShape(999.dp)) {
         Text(
@@ -623,10 +895,11 @@ private fun MoodBadge(mood: PetMood) {
             color = Color(0xFF111111),
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
         )
     }
 }
-
 
 @Composable
 private fun PlayMenuDialog(
@@ -634,7 +907,7 @@ private fun PlayMenuDialog(
     onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        MenuDialogCard(title = "选择小游戏", subtitle = "玩耍获得金币，再去给小猫买好吃的！") {
+        MenuDialogCard(title = "选择小游戏", subtitle = "玩耍获得金币，再给小猫买好吃的") {
             PetCatalog.miniGames.forEach { game ->
                 GameMenuCard(game = game, onClick = { onSelectGame(game) })
                 Spacer(modifier = Modifier.height(10.dp))
@@ -688,9 +961,11 @@ private fun MenuDialogCard(
             .fillMaxWidth()
             .heightIn(max = 620.dp),
     ) {
-        Column(modifier = Modifier
-            .padding(18.dp)
-            .verticalScroll(rememberScrollState())) {
+        Column(
+            modifier = Modifier
+                .padding(18.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
             Text(text = title, color = Color(0xFF111111), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = subtitle, color = Color(0xFF666666), style = MaterialTheme.typography.bodyMedium)
@@ -706,7 +981,7 @@ private fun GameMenuCard(game: MiniGameItem, onClick: () -> Unit) {
         iconRes = game.iconRes,
         title = game.name,
         description = game.description,
-        trailingText = if (game.enabled) "开始" else "待开发",
+        trailingText = if (game.enabled) "开始" else "待开放",
         enabled = true,
         locked = !game.enabled,
         onClick = onClick,
@@ -751,7 +1026,9 @@ private fun MenuItemCard(
                     painter = painterResource(id = iconRes),
                     contentDescription = title,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(66.dp).graphicsLayer { alpha = contentAlpha },
+                    modifier = Modifier
+                        .size(66.dp)
+                        .graphicsLayer { alpha = contentAlpha },
                 )
                 if (locked) {
                     Image(

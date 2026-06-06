@@ -1,7 +1,6 @@
 package com.example.deskcat
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,8 +25,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.deskcat.weather.WeatherUiState
 
 @Composable
@@ -39,7 +39,7 @@ fun WeatherCard(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFDF8F0)),
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(24.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         modifier = modifier,
     ) {
@@ -49,24 +49,28 @@ fun WeatherCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "小猫天气播报",
                         color = Color(0xFF2A2118),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = "让我看看今天适合怎么照顾你",
+                        text = "天气会同步影响宠物心情和对白",
                         color = Color(0xFF7A6652),
                         fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AssistChip(
                         onClick = onAskWeather,
                         enabled = !weatherState.loading,
-                        label = { Text(if (weatherState.loading) "闻天气" else "问天气") },
+                        label = { OneLineText(if (weatherState.loading) "查询中" else "刷新") },
                         colors = AssistChipDefaults.assistChipColors(
                             containerColor = Color(0xFFFFE0B8),
                             labelColor = Color(0xFF2A2118),
@@ -75,7 +79,7 @@ fun WeatherCard(
                     AssistChip(
                         onClick = onUseDeviceLocation,
                         enabled = !weatherState.loading,
-                        label = { Text("定位") },
+                        label = { OneLineText("定位") },
                         colors = AssistChipDefaults.assistChipColors(
                             containerColor = Color(0xFFFFF1DE),
                             labelColor = Color(0xFF2A2118),
@@ -93,8 +97,8 @@ fun WeatherCard(
                 )
                 report != null -> {
                     Surface(
-                        color = Color(0xFFFFFFFF),
-                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White,
+                        shape = RoundedCornerShape(18.dp),
                         shadowElevation = 1.dp,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -104,18 +108,24 @@ fun WeatherCard(
                                 color = Color(0xFF2A2118),
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = "体感 ${report.feelsLike}°C，湿度 ${report.humidity}%，${report.windDir} ${report.windScale} 级",
                                 color = Color(0xFF5F5144),
                                 style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "小猫提醒：${report.careAdvice()}",
                                 color = Color(0xFF7A4A20),
                                 style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -124,11 +134,15 @@ fun WeatherCard(
                     text = "天气服务未配置，请在 local.properties 中设置 QWEATHER_API_HOST 和 QWEATHER_API_KEY。",
                     color = Color(0xFF666666),
                     style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 else -> Text(
-                    text = "点击问天气，小猫会按当前城市给你一句贴心提醒。",
+                    text = "点击刷新，或使用定位，让小猫按当前天气给你一句提醒。",
                     color = Color(0xFF7A6652),
                     style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -142,7 +156,6 @@ fun WeatherSettingsSection(
     onSaveCity: () -> Unit,
     onUseDeviceLocation: () -> Unit,
 ) {
-    Spacer(modifier = Modifier.height(14.dp))
     Surface(
         color = Color(0xFFFFF6EA),
         shape = RoundedCornerShape(22.dp),
@@ -150,9 +163,11 @@ fun WeatherSettingsSection(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = "小猫要关注哪里",
+                text = "关注城市",
                 color = Color(0xFF2A2118),
                 fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -187,7 +202,7 @@ fun WeatherSettingsSection(
                     onClick = onSaveCity,
                     enabled = !weatherState.loading,
                 ) {
-                    Text(if (weatherState.loading) "查询中" else "保存并查询")
+                    OneLineText(if (weatherState.loading) "查询中" else "保存")
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -198,21 +213,33 @@ fun WeatherSettingsSection(
             ) {
                 Text(
                     text = if (weatherState.usingDeviceLocation) {
-                        "小猫正在看你附近的天气"
+                        "当前使用你附近的天气"
                     } else {
-                        "支持常见城市名，也可以输入和风 LocationID"
+                        "支持常见城市名，也可以输入和风天气 LocationID"
                     },
                     color = Color(0xFF7A6652),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 TextButton(
                     onClick = onUseDeviceLocation,
                     enabled = !weatherState.loading,
                 ) {
-                    Text("使用定位")
+                    OneLineText("定位")
                 }
             }
         }
     }
+}
+
+@Composable
+private fun OneLineText(text: String) {
+    Text(
+        text = text,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+    )
 }

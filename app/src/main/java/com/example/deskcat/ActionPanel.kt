@@ -1,23 +1,26 @@
 package com.example.deskcat
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun DesktopActionPanel(
@@ -29,58 +32,21 @@ fun DesktopActionPanel(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xEEFFFFFF)),
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp),
+        shape = RoundedCornerShape(22.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "互动操作",
-                color = Color(0xFF111111),
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                DesktopActionChip(
-                    text = "摸摸",
-                    onClick = onPet,
-                    containerColor = Color(0xFFF1E7D7),
-                    modifier = Modifier.weight(1f),
-                )
-                DesktopActionChip(
-                    text = "喂食",
-                    onClick = onFeed,
-                    containerColor = Color(0xFFE8E2D8),
-                    modifier = Modifier.weight(1f),
-                )
-                DesktopActionChip(
-                    text = "玩耍",
-                    onClick = onPlay,
-                    containerColor = Color(0xFFF7F4EE),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                DesktopActionChip(
-                    text = "休息",
-                    onClick = onRest,
-                    containerColor = Color(0xFFE6E1DA),
-                    modifier = Modifier.weight(1f),
-                )
-                DesktopActionChip(
-                    text = "归位",
-                    onClick = onReset,
-                    containerColor = Color(0xFFF0EEE9),
-                    modifier = Modifier.weight(1f),
-                )
-            }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            DesktopActionChip("摸摸", onPet, Color(0xFFF1E7D7), Modifier.weight(1f))
+            DesktopActionChip("喂食", onFeed, Color(0xFFE8E2D8), Modifier.weight(1f))
+            DesktopActionChip("玩耍", onPlay, Color(0xFFF7F4EE), Modifier.weight(1f))
+            DesktopActionChip("休息", onRest, Color(0xFFE6E1DA), Modifier.weight(1f))
+            DesktopActionChip("归位", onReset, Color(0xFFF0EEE9), Modifier.weight(1f))
         }
     }
 }
@@ -89,16 +55,26 @@ fun DesktopActionPanel(
 fun DesktopActionChip(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
     containerColor: Color,
+    modifier: Modifier = Modifier,
 ) {
-    AssistChip(
-        onClick = onClick,
-        modifier = modifier,
-        label = { Text(text) },
-        colors = AssistChipDefaults.assistChipColors(
-            containerColor = containerColor,
-            labelColor = Color(0xFF111111),
-        ),
-    )
+    Box(
+        modifier = modifier
+            .height(38.dp)
+            .background(containerColor, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = Color(0xFF111111),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+            softWrap = false,
+        )
+    }
 }
