@@ -70,6 +70,7 @@ import com.example.deskcat.game.CoinCatchGame
 import com.example.deskcat.game.CoinGameResult
 import com.example.deskcat.game.CoinGameResultDialog
 import com.example.deskcat.game.SlotMachineGame
+import com.example.deskcat.game.CatTeaserGame
 import com.example.deskcat.pet.FoodItem
 import com.example.deskcat.pet.MiniGameItem
 import com.example.deskcat.pet.PetCatalog
@@ -86,6 +87,7 @@ private enum class DeskCatScreenMode {
     Main,
     CoinGame,
     SlotMachine,
+    CatTeaser,
 }
 
 private enum class DeskCatTab(val label: String, val iconRes: Int) {
@@ -206,7 +208,29 @@ fun BakingScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-        } else {
+        }
+        else if (screenMode == DeskCatScreenMode.CatTeaser) {
+
+            CatTeaserGame(
+                onReward = {
+                    val rewardFood = PetCatalog.foods.random()
+
+                    bakingViewModel.buyFood(
+                        rewardFood,
+                        free = true
+                    )
+                    bakingViewModel.setSpeech(
+                        "抓到逗猫棒啦！获得${rewardFood.name}"
+                    )
+                },
+
+                onExit = {
+                    screenMode = DeskCatScreenMode.Main
+                    selectedTab = DeskCatTab.Pet
+                }
+            )
+
+        }else {
             Scaffold(
                 containerColor = Color.Transparent,
                 bottomBar = {
@@ -315,6 +339,10 @@ fun BakingScreen(
                         PetCatalog.SLOT_MACHINE_GAME_ID -> {
                             showPlayMenu = false
                             screenMode = DeskCatScreenMode.SlotMachine
+                        }
+                        PetCatalog.CAT_TEASER_GAME_ID -> {
+                            showPlayMenu = false
+                            screenMode = DeskCatScreenMode.CatTeaser
                         }
                         else -> {
                             bakingViewModel.setSpeech("${game.name}还在开发中，先玩接金币吧。")

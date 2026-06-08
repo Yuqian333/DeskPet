@@ -226,6 +226,19 @@ object PetStateRepository {
         return earnedCoins.coerceAtLeast(0)
     }
 
+    fun finishTeaserGame() {
+
+        val current = _uiState.value
+
+        _uiState.value = current.copy(
+            hunger = (current.hunger - 20).coerceIn(0,100),
+            happiness = (current.happiness+20).coerceIn(0,100),
+            energy = (current.energy - 20).coerceIn(0,100)
+        )
+
+
+        persistProgress()
+    }
     fun setSpeech(speech: String) {
         markUserInteraction()
         _uiState.value = _uiState.value.copy(speech = speech)

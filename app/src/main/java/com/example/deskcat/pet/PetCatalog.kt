@@ -26,6 +26,7 @@ object PetCatalog {
     const val COIN_CATCH_GAME_ID = "coin_catch"
     const val SLOT_MACHINE_GAME_ID = "slot_machine"
 
+    const val CAT_TEASER_GAME_ID = "cat_teaser"
     val foods = listOf(
         FoodItem(
             id = "kibble",
@@ -93,11 +94,11 @@ object PetCatalog {
             enabled = true,
         ),
         MiniGameItem(
-            id = "teaser_wand",
+            id = CAT_TEASER_GAME_ID,
             name = "逗猫棒",
-            description = "待开放",
+            description = "拖动逗猫棒陪小猫玩耍",
             iconRes = R.drawable.game_teaser_wand,
-            enabled = false,
+            enabled = true
         ),
         MiniGameItem(
             id = SLOT_MACHINE_GAME_ID,
