@@ -12,6 +12,8 @@ val localProperties = Properties().apply {
     }
 }
 
+fun localProperty(name: String): String? = localProperties.getProperty(name)?.trim()?.takeIf { it.isNotEmpty() }
+
 android {
     namespace = "com.example.deskcat"
     compileSdk {
@@ -28,8 +30,25 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        resValue("string", "qweather_api_host", localProperties.getProperty("QWEATHER_API_HOST") ?: "")
-        resValue("string", "qweather_api_key", localProperties.getProperty("QWEATHER_API_KEY") ?: "")
+        resValue("string", "remove_bg_api_key", localProperty("REMOVE_BG_API_KEY") ?: "")
+        resValue("string", "qweather_api_host", localProperty("QWEATHER_API_HOST") ?: "")
+        resValue("string", "qweather_api_key", localProperty("QWEATHER_API_KEY") ?: "")
+        resValue("string", "doubao_api_key", localProperty("DOUBAO_API_KEY") ?: "")
+        resValue(
+            "string",
+            "doubao_image_model",
+            localProperty("DOUBAO_IMAGE_MODEL") ?: "doubao-seedream-5-0-260128",
+        )
+        resValue(
+            "string",
+            "doubao_api_host",
+            localProperty("DOUBAO_API_HOST") ?: "ark.cn-beijing.volces.com",
+        )
+        resValue(
+            "string",
+            "doubao_image_input_field",
+            localProperty("DOUBAO_IMAGE_INPUT_FIELD") ?: "image",
+        )
     }
 
     buildTypes {
@@ -63,6 +82,7 @@ dependencies {
     implementation(libs.mlkit.image.labeling)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

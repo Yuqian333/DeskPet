@@ -8,6 +8,7 @@ enum class PetSizePreset {
 
 const val PET_SIZE_SCALE_MIN = 0.5f
 const val PET_SIZE_SCALE_MAX = 1.2f
+const val DEFAULT_PET_NAME = "小猫"
 
 enum class PetStyle {
     Cat,    // 慵懒：缓慢摇摆，低频弹跳
@@ -32,12 +33,15 @@ fun PetStyle.toAnimParams(): PetAnimParams = when (this) {
 
 data class PetSettingsUiState(
     val imageUri: String? = null,
+    val petName: String = DEFAULT_PET_NAME,
     val sizeScale: Float = 1f,
     val sizePreset: PetSizePreset = PetSizePreset.Medium,
     val autoMoveEnabled: Boolean = true,
     val petStyle: PetStyle = PetStyle.Default,
     val detectedLabel: String? = null,
     val petPackDir: String? = null,
+    val aiPrompt: String = "",
+    val aiAnimDir: String? = null,
 ) {
     val useCustomImage: Boolean
         get() = !imageUri.isNullOrBlank()

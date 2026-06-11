@@ -33,6 +33,7 @@ import com.example.deskcat.weather.WeatherUiState
 @Composable
 fun WeatherCard(
     weatherState: WeatherUiState,
+    petName: String,
     onAskWeather: () -> Unit,
     onUseDeviceLocation: () -> Unit,
     modifier: Modifier = Modifier,
@@ -51,7 +52,7 @@ fun WeatherCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "小猫天气播报",
+                        text = "${petName}天气播报",
                         color = Color(0xFF2A2118),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
@@ -121,7 +122,7 @@ fun WeatherCard(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "小猫提醒：${report.careAdvice()}",
+                                text = "${petName}提醒：${report.careAdvice(petName)}",
                                 color = Color(0xFF7A4A20),
                                 style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 3,
@@ -138,7 +139,7 @@ fun WeatherCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 else -> Text(
-                    text = "点击刷新，或使用定位，让小猫按当前天气给你一句提醒。",
+                    text = "点击刷新，或使用定位，让${petName}按当前天气给你一句提醒。",
                     color = Color(0xFF7A6652),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 3,

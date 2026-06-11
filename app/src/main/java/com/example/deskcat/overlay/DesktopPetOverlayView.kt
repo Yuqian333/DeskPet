@@ -18,6 +18,7 @@ import com.example.deskcat.MainActivity
 import com.example.deskcat.PetMood
 import com.example.deskcat.R
 import com.example.deskcat.ai.AiAnimState
+import com.example.deskcat.ai.AiAnimStore
 import com.example.deskcat.pack.PetPack
 import com.example.deskcat.pack.PetPackLoader
 import com.example.deskcat.pet.PetStateRepository
@@ -207,7 +208,12 @@ class DesktopPetOverlayView(
         scope.launch {
             petPreferencesRepository.settingsFlow.collect { settings ->
                 currentSettings = settings
-                updatePetImageFromSettings()
+                if (aiFrames.isNullOrEmpty() && !settings.aiAnimDir.isNullOrBlank()) {
+                    loadStoredAiFrames(settings.aiAnimDir)
+                }
+                if (aiFrames.isNullOrEmpty()) {
+                    updatePetImageFromSettings()
+                }
                 if (!collapsedToEdge) {
                     scheduleAutoMove()
                 }
@@ -447,7 +453,7 @@ class DesktopPetOverlayView(
             while (true) {
                 petImage.setImageBitmap(frames[index])
                 index = (index + 1) % frames.size
-                delay(125L)
+                delay(420L)
             }
         }
     }
@@ -455,6 +461,15 @@ class DesktopPetOverlayView(
     private fun stopAiFrameLoop() {
         aiFrameJob?.cancel()
         aiFrameJob = null
+    }
+
+    private fun loadStoredAiFrames(dir: String?) {
+        scope.launch(Dispatchers.IO) {
+            val frames = AiAnimStore.load(dir)
+            if (frames.isNotEmpty()) {
+                AiAnimState.update(frames)
+            }
+        }
     }
 
     private fun setupActionButtons() {
@@ -496,6 +511,7 @@ class DesktopPetOverlayView(
         petFrame.minimumHeight = size
         petImage.layoutParams = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
         rootView.requestLayout()
+        if (!aiFrames.isNullOrEmpty()) return
 
         when {
             currentSettings.usePetPack -> {

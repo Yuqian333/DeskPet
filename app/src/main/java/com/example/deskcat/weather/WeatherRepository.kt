@@ -60,9 +60,10 @@ class WeatherRepository(
         if (freshEnough) {
             val report = cached ?: return Result.failure(IllegalStateException("天气缓存不可用。"))
             if (speak) {
+                val petName = PetStateRepository.currentPetName()
                 PetStateRepository.reactToWeather(
                     mood = report.petMood(),
-                    speech = report.toPetSpeech(),
+                    speech = report.toPetSpeech(petName),
                 )
             }
             return Result.success(report)
@@ -91,7 +92,8 @@ class WeatherRepository(
         result.fold(
             onSuccess = { report ->
                 val previous = cachedReport
-                val speech = report.specialSpeechComparedTo(previous) ?: report.toPetSpeech()
+                val petName = PetStateRepository.currentPetName()
+                val speech = report.specialSpeechComparedTo(previous, petName) ?: report.toPetSpeech(petName)
                 cachedReport = report
                 cachedAtMillis = System.currentTimeMillis()
                 _uiState.update {

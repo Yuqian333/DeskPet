@@ -21,6 +21,9 @@ class PetPreferencesRepository(private val context: Context) {
         val petStyle = stringPreferencesKey("pet_style")
         val detectedLabel = stringPreferencesKey("detected_label")
         val petPackDir = stringPreferencesKey("pet_pack_dir")
+        val aiPrompt = stringPreferencesKey("ai_prompt")
+        val aiAnimDir = stringPreferencesKey("ai_anim_dir")
+        val petName = stringPreferencesKey("pet_name")
     }
 
     val settingsFlow: Flow<PetSettingsUiState> = context.petSettingsDataStore.data.map { preferences ->
@@ -40,6 +43,17 @@ class PetPreferencesRepository(private val context: Context) {
     suspend fun setSizeScale(scale: Float) {
         context.petSettingsDataStore.edit { preferences ->
             preferences[Keys.sizeScale] = scale.coerceIn(PET_SIZE_SCALE_MIN, PET_SIZE_SCALE_MAX)
+        }
+    }
+
+    suspend fun setPetName(name: String) {
+        context.petSettingsDataStore.edit { preferences ->
+            val normalized = name.trim()
+            if (normalized.isBlank() || normalized == DEFAULT_PET_NAME) {
+                preferences.remove(Keys.petName)
+            } else {
+                preferences[Keys.petName] = normalized
+            }
         }
     }
 
@@ -76,6 +90,26 @@ class PetPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun setAiPrompt(prompt: String) {
+        context.petSettingsDataStore.edit { preferences ->
+            if (prompt.isBlank()) {
+                preferences.remove(Keys.aiPrompt)
+            } else {
+                preferences[Keys.aiPrompt] = prompt
+            }
+        }
+    }
+
+    suspend fun setAiAnimDir(dir: String?) {
+        context.petSettingsDataStore.edit { preferences ->
+            if (dir.isNullOrBlank()) {
+                preferences.remove(Keys.aiAnimDir)
+            } else {
+                preferences[Keys.aiAnimDir] = dir
+            }
+        }
+    }
+
     private fun Preferences.toUiState(): PetSettingsUiState {
         val preset = this[Keys.sizePreset]
             ?.let { runCatching { PetSizePreset.valueOf(it) }.getOrNull() }
@@ -87,12 +121,15 @@ class PetPreferencesRepository(private val context: Context) {
 
         return PetSettingsUiState(
             imageUri = this[Keys.imageUri],
+            petName = this[Keys.petName]?.takeIf { it.isNotBlank() } ?: DEFAULT_PET_NAME,
             sizeScale = (this[Keys.sizeScale] ?: 1f).coerceIn(PET_SIZE_SCALE_MIN, PET_SIZE_SCALE_MAX),
             sizePreset = preset,
             autoMoveEnabled = this[Keys.autoMoveEnabled] ?: true,
             petStyle = style,
             detectedLabel = this[Keys.detectedLabel],
             petPackDir = this[Keys.petPackDir],
+            aiPrompt = this[Keys.aiPrompt] ?: "",
+            aiAnimDir = this[Keys.aiAnimDir],
         )
     }
 }

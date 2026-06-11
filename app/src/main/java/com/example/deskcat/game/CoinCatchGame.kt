@@ -59,6 +59,7 @@ data class CoinGameResult(
 @Composable
 fun CoinGameResultDialog(
     result: CoinGameResult,
+    petName: String,
     onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -78,13 +79,21 @@ fun CoinGameResultDialog(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "本局接到 ${result.caughtCoins} 枚金币",
+                    text = if (result.caughtCoins > 0) {
+                        "${petName}接到 ${result.caughtCoins} 枚金币"
+                    } else {
+                        "${petName}这局先热身了一下"
+                    },
                     color = Color(0xFF111111),
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "实际获得 ${result.earnedCoins} 金币",
+                    text = if (result.earnedCoins > 0) {
+                        "实际获得 ${result.earnedCoins} 金币，零食基金增加啦"
+                    } else {
+                        "没关系，下一局我们再把金币接住"
+                    },
                     color = Color(0xFF666666),
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -132,7 +141,11 @@ fun CoinCatchGame(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        text = if (uiState.energy <= 0) "精力不足，本局奖励减半" else "拖动小猫接住金币",
+                        text = if (uiState.energy <= 0) {
+                            "${settingsState.petName}有点累，本局奖励减半"
+                        } else {
+                            "拖动${settingsState.petName}接住金币，闪闪发光的都别放过"
+                        },
                         color = Color(0xFF666666),
                         style = MaterialTheme.typography.bodySmall,
                     )

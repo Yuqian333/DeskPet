@@ -55,6 +55,7 @@ private val FOOD_ICONS = listOf(
 
 @Composable
 fun SlotMachineGame(
+    petName: String = "小猫",
     onWinFood: (FoodItem) -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
@@ -62,7 +63,7 @@ fun SlotMachineGame(
     val scope = rememberCoroutineScope()
     var slots by remember { mutableStateOf(listOf(0, 1, 2)) }
     var spinning by remember { mutableStateOf(false) }
-    var resultMessage by remember { mutableStateOf("拉动摇杆，三张一致即可获得食物！") }
+    var resultMessage by remember(petName) { mutableStateOf("拉动摇杆，${petName}帮你盯住三个图案！") }
 
     val shake = remember { Animatable(0f) }
 
@@ -70,7 +71,7 @@ fun SlotMachineGame(
         if (spinning) return
         scope.launch {
             spinning = true
-            resultMessage = "摇动中..."
+            resultMessage = "摇动中，${petName}正在认真许愿..."
 
             // 快速滚动动画：每个 slot 随机切换多次，逐步停止
             val rounds = listOf(12, 16, 20)
@@ -91,7 +92,7 @@ fun SlotMachineGame(
 
             if (finalSlots[0] == finalSlots[1] && finalSlots[1] == finalSlots[2]) {
                 val won = PetCatalog.foods[finalSlots[0]]
-                resultMessage = "三连 ${won.name}！获得食物！"
+                resultMessage = "三连 ${won.name}！${petName}开心到尾巴都要转起来了！"
                 // 摇杆震动效果
                 launch {
                     repeat(4) {
@@ -102,7 +103,7 @@ fun SlotMachineGame(
                 }
                 onWinFood(won)
             } else {
-                resultMessage = "差一点点，再试一次！"
+                resultMessage = "差一点点，再试一次也不丢人，运气正在路上！"
             }
         }
     }
@@ -189,7 +190,7 @@ fun SlotMachineGame(
 
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "三个图案一致，即可免费获得该食物",
+                text = "三个图案一致，即可免费获得该食物，${petName}会在旁边加油",
                 color = Color(0xFF999999),
                 style = MaterialTheme.typography.bodySmall,
             )

@@ -1,5 +1,6 @@
 package com.example.deskcat
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -38,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -55,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -65,7 +68,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.deskcat.ai.AiAnimStore
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.deskcat.ai.DoubaoAnimGenerator
 import com.example.deskcat.game.CoinCatchGame
 import com.example.deskcat.game.CoinGameResult
 import com.example.deskcat.game.CoinGameResultDialog
@@ -116,12 +121,19 @@ fun BakingScreen(
     val analyzing by settingsViewModel.analyzing.collectAsState()
     val generatingAnim by settingsViewModel.generatingAnim.collectAsState()
     val aiAnimFrames by settingsViewModel.aiAnimFrames.collectAsState()
+    val aiAnimMessage by settingsViewModel.aiAnimMessage.collectAsState()
+    val storedAiAnimations by settingsViewModel.storedAiAnimations.collectAsState()
     val context = LocalContext.current
     var selectedTab by remember { mutableStateOf(DeskCatTab.Pet) }
     var screenMode by remember { mutableStateOf(DeskCatScreenMode.Main) }
     var showFoodMenu by remember { mutableStateOf(false) }
     var showPlayMenu by remember { mutableStateOf(false) }
+    var showAiAnimPicker by remember { mutableStateOf(false) }
     var coinGameResult by remember { mutableStateOf<CoinGameResult?>(null) }
+
+    LaunchedEffect(Unit) {
+        settingsViewModel.restoreAiAnimation(context)
+    }
 
     val floatTransition = rememberInfiniteTransition(label = "petFloat")
     val floatOffset by floatTransition.animateFloat(
@@ -186,7 +198,7 @@ fun BakingScreen(
                         selectedTab = DeskCatTab.Pet
                     },
                     onExit = {
-                        bakingViewModel.setSpeech("这局先暂停，下次继续接金币。")
+                        bakingViewModel.setSpeech("这局先暂停，${settingsState.petName}把手感悄悄存起来，下次继续接金币。")
                         screenMode = DeskCatScreenMode.Main
                         selectedTab = DeskCatTab.Pet
                     },
@@ -196,12 +208,13 @@ fun BakingScreen(
         } else if (screenMode == DeskCatScreenMode.SlotMachine) {
             GameSurface(pagePadding = pagePadding) {
                 SlotMachineGame(
+                    petName = settingsState.petName,
                     onWinFood = { food ->
                         bakingViewModel.buyFood(food, free = true)
-                        bakingViewModel.setSpeech("三连！获得了${food.name}！")
+                        bakingViewModel.setSpeech("三连成功！${settingsState.petName}抱着${food.name}开心转圈。")
                     },
                     onExit = {
-                        bakingViewModel.setSpeech("下次再来试试手气。")
+                        bakingViewModel.setSpeech("摇杆先休息一下，下次${settingsState.petName}再陪你试手气。")
                         screenMode = DeskCatScreenMode.Main
                         selectedTab = DeskCatTab.Pet
                     },
@@ -212,6 +225,7 @@ fun BakingScreen(
         else if (screenMode == DeskCatScreenMode.CatTeaser) {
 
             CatTeaserGame(
+                petName = settingsState.petName,
                 onReward = {
                     val rewardFood = PetCatalog.foods.random()
 
@@ -220,7 +234,7 @@ fun BakingScreen(
                         free = true
                     )
                     bakingViewModel.setSpeech(
-                        "抓到逗猫棒啦！获得${rewardFood.name}"
+                        "${settingsState.petName}抓到玩具啦，还叼回了${rewardFood.name}，今天也有小小胜利。"
                     )
                 },
 
@@ -278,6 +292,7 @@ fun BakingScreen(
                         pagePadding = pagePadding,
                         cardSpacing = cardSpacing,
                         weatherState = weatherState,
+                        petName = settingsState.petName,
                         onAskWeather = { weatherViewModel.refreshManualWeather(speak = true) },
                         onUseDeviceLocation = requestDeviceWeather,
                         onCityChange = weatherViewModel::updateCityInput,
@@ -296,12 +311,14 @@ fun BakingScreen(
                         analyzing = analyzing,
                         generatingAnim = generatingAnim,
                         hasAiAnim = aiAnimFrames != null,
+                        aiAnimMessage = aiAnimMessage,
+                        storedAiAnimations = storedAiAnimations,
                         onPickCustomImage = {
                             onPickCustomImage { uri ->
                                 settingsViewModel.analyzeAndSetImage(context, uri?.toString())
                             }
                         },
-                        onResetImage = { settingsViewModel.setImageUri(null) },
+                        onResetImage = { settingsViewModel.clearCustomImage(context) },
                         onImportPetPack = {
                             onImportPetPack { uri ->
                                 if (uri != null) settingsViewModel.importPetPackFromZip(context, uri)
@@ -309,7 +326,13 @@ fun BakingScreen(
                         },
                         onClearPetPack = { settingsViewModel.clearPetPack(context) },
                         onGenerateAiAnim = { settingsViewModel.generateAiAnimation(context) },
-                        onClearAiAnim = { settingsViewModel.clearAiAnimation() },
+                        onClearAiAnim = { settingsViewModel.clearAiAnimation(context) },
+                        onPickAiAnim = {
+                            settingsViewModel.refreshStoredAiAnimations(context)
+                            showAiAnimPicker = true
+                        },
+                        onPetNameChange = settingsViewModel::setPetName,
+                        onAiPromptChange = settingsViewModel::setAiPrompt,
                         onSelectPreset = { preset, scale ->
                             settingsViewModel.setSizePreset(preset)
                             settingsViewModel.setSizeScale(scale)
@@ -330,6 +353,7 @@ fun BakingScreen(
         }
         if (showPlayMenu) {
             PlayMenuDialog(
+                petName = settingsState.petName,
                 onSelectGame = { game ->
                     when (game.id) {
                         PetCatalog.COIN_CATCH_GAME_ID -> {
@@ -355,7 +379,25 @@ fun BakingScreen(
         coinGameResult?.let { result ->
             CoinGameResultDialog(
                 result = result,
+                petName = settingsState.petName,
                 onDismiss = { coinGameResult = null },
+            )
+        }
+        if (showAiAnimPicker) {
+            AiAnimPickerDialog(
+                animations = storedAiAnimations,
+                currentDir = settingsState.aiAnimDir,
+                onSelect = { anim ->
+                    settingsViewModel.selectAiAnimation(context, anim.dirPath)
+                    showAiAnimPicker = false
+                },
+                onRename = { anim, title ->
+                    settingsViewModel.renameAiAnimation(context, anim.dirPath, title)
+                },
+                onDelete = { anim ->
+                    settingsViewModel.deleteAiAnimation(context, anim.dirPath)
+                },
+                onDismiss = { showAiAnimPicker = false },
             )
         }
     }
@@ -405,7 +447,11 @@ private fun PetHomeTab(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(cardSpacing),
     ) {
-        PetStatusCard(uiState = uiState, modifier = Modifier.fillMaxWidth())
+        PetStatusCard(
+            uiState = uiState,
+            petName = settingsState.petName,
+            modifier = Modifier.fillMaxWidth(),
+        )
         DesktopActionPanel(
             onPet = onPet,
             onFeed = onFeed,
@@ -432,6 +478,7 @@ private fun WeatherTab(
     pagePadding: androidx.compose.ui.unit.Dp,
     cardSpacing: androidx.compose.ui.unit.Dp,
     weatherState: com.example.deskcat.weather.WeatherUiState,
+    petName: String,
     onAskWeather: () -> Unit,
     onUseDeviceLocation: () -> Unit,
     onCityChange: (String) -> Unit,
@@ -446,9 +493,10 @@ private fun WeatherTab(
             .padding(pagePadding),
         verticalArrangement = Arrangement.spacedBy(cardSpacing),
     ) {
-        SectionTitle(title = "天气", subtitle = "让小猫按当前天气给你一句提醒")
+        SectionTitle(title = "天气", subtitle = "让${petName}按当前天气给你一句提醒")
         WeatherCard(
             weatherState = weatherState,
+            petName = petName,
             onAskWeather = onAskWeather,
             onUseDeviceLocation = onUseDeviceLocation,
             modifier = Modifier.fillMaxWidth(),
@@ -476,12 +524,17 @@ private fun SettingsTab(
     analyzing: Boolean,
     generatingAnim: Boolean,
     hasAiAnim: Boolean,
+    aiAnimMessage: String?,
+    storedAiAnimations: List<AiAnimStore.StoredAnimation>,
     onPickCustomImage: () -> Unit,
     onResetImage: () -> Unit,
     onImportPetPack: () -> Unit,
     onClearPetPack: () -> Unit,
     onGenerateAiAnim: () -> Unit,
     onClearAiAnim: () -> Unit,
+    onPickAiAnim: () -> Unit,
+    onPetNameChange: (String) -> Unit,
+    onAiPromptChange: (String) -> Unit,
     onSelectPreset: (PetSizePreset, Float) -> Unit,
     onScaleChange: (Float) -> Unit,
     onAutoMoveChange: (Boolean) -> Unit,
@@ -509,12 +562,17 @@ private fun SettingsTab(
             analyzing = analyzing,
             generatingAnim = generatingAnim,
             hasAiAnim = hasAiAnim,
+            aiAnimMessage = aiAnimMessage,
+            storedAiAnimations = storedAiAnimations,
             onPickCustomImage = onPickCustomImage,
             onResetImage = onResetImage,
             onImportPetPack = onImportPetPack,
             onClearPetPack = onClearPetPack,
             onGenerateAiAnim = onGenerateAiAnim,
             onClearAiAnim = onClearAiAnim,
+            onPickAiAnim = onPickAiAnim,
+            onPetNameChange = onPetNameChange,
+            onAiPromptChange = onAiPromptChange,
             onSelectPreset = onSelectPreset,
             onScaleChange = onScaleChange,
             onAutoMoveChange = onAutoMoveChange,
@@ -544,6 +602,7 @@ private fun SectionTitle(title: String, subtitle: String) {
 @Composable
 private fun PetStatusCard(
     uiState: DesktopPetUiState,
+    petName: String,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -560,7 +619,7 @@ private fun PetStatusCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "桌宠喵",
+                        text = petName,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF111111),
@@ -582,10 +641,10 @@ private fun PetStatusCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                CoinPill(coins = uiState.coins, modifier = Modifier.weight(1.05f))
-                CompactStatPill(label = "饱腹", value = uiState.hunger, modifier = Modifier.weight(1f))
-                CompactStatPill(label = "开心", value = uiState.happiness, modifier = Modifier.weight(1f))
-                CompactStatPill(label = "精力", value = uiState.energy, modifier = Modifier.weight(1f))
+                CoinPill(coins = uiState.coins, modifier = Modifier.weight(1.35f))
+                CompactStatPill(label = "饱腹", value = uiState.hunger, modifier = Modifier.weight(0.95f))
+                CompactStatPill(label = "开心", value = uiState.happiness, modifier = Modifier.weight(0.95f))
+                CompactStatPill(label = "精力", value = uiState.energy, modifier = Modifier.weight(0.95f))
             }
         }
     }
@@ -655,12 +714,17 @@ private fun PetSettingsPanel(
     analyzing: Boolean,
     generatingAnim: Boolean,
     hasAiAnim: Boolean,
+    aiAnimMessage: String?,
+    storedAiAnimations: List<AiAnimStore.StoredAnimation>,
     onPickCustomImage: () -> Unit,
     onResetImage: () -> Unit,
     onImportPetPack: () -> Unit,
     onClearPetPack: () -> Unit,
     onGenerateAiAnim: () -> Unit,
     onClearAiAnim: () -> Unit,
+    onPickAiAnim: () -> Unit,
+    onPetNameChange: (String) -> Unit,
+    onAiPromptChange: (String) -> Unit,
     onSelectPreset: (PetSizePreset, Float) -> Unit,
     onScaleChange: (Float) -> Unit,
     onAutoMoveChange: (Boolean) -> Unit,
@@ -675,6 +739,23 @@ private fun PetSettingsPanel(
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = "形象与动画", color = Color(0xFF111111), fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = settingsState.petName,
+                onValueChange = onPetNameChange,
+                label = { Text("宠物名字") },
+                placeholder = { Text("默认：小猫") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+
+            AiAnimationLibrarySection(
+                animations = storedAiAnimations,
+                currentDir = settingsState.aiAnimDir,
+                onManage = onPickAiAnim,
+            )
+            Spacer(modifier = Modifier.height(14.dp))
 
             Text(text = "动画资源包", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(6.dp))
@@ -731,12 +812,44 @@ private fun PetSettingsPanel(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = when {
-                        generatingAnim -> "正在调用豆包 AI 生成动画帧"
+                        generatingAnim -> "正在调用豆包 AI 生成透明动画帧"
                         hasAiAnim -> "已生成 AI 动画，正在预览播放"
-                        else -> "基于当前图片生成逐帧动画"
+                        !aiAnimMessage.isNullOrBlank() -> aiAnimMessage
+                        else -> "基于当前图片生成透明逐帧动画"
                     },
-                    color = if (generatingAnim) Color(0xFF888888) else Color(0xFF444444),
+                    color = when {
+                        generatingAnim -> Color(0xFF888888)
+                        !hasAiAnim && !aiAnimMessage.isNullOrBlank() -> Color(0xFF9C3A2F)
+                        else -> Color(0xFF444444)
+                    },
                     style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "内置示例（不可删除）",
+                    color = Color(0xFF111111),
+                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = DoubaoAnimGenerator.defaultPrompt(settingsState.petName),
+                    color = Color(0xFF555555),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFF7F4EE), RoundedCornerShape(12.dp))
+                        .padding(10.dp),
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = settingsState.aiPrompt,
+                    onValueChange = onAiPromptChange,
+                    label = { Text("自定义提示词") },
+                    placeholder = { Text("留空时使用上方内置示例") },
+                    minLines = 3,
+                    maxLines = 6,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -795,7 +908,7 @@ private fun PetSettingsPanel(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = "自动移动", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
                     Text(
-                        text = "不拖动时，小猫会轻微自己动一下",
+                        text = "不拖动时，${settingsState.petName}会轻微自己动一下",
                         color = Color(0xFF666666),
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -821,6 +934,32 @@ private fun imageStatusText(settingsState: PetSettingsUiState, analyzing: Boolea
 }
 
 @Composable
+private fun AiAnimationLibrarySection(
+    animations: List<AiAnimStore.StoredAnimation>,
+    currentDir: String?,
+    onManage: () -> Unit,
+) {
+    val current = animations.firstOrNull { it.dirPath == currentDir }
+    Text(text = "AI 动画库", color = Color(0xFF111111), fontWeight = FontWeight.Medium)
+    Spacer(modifier = Modifier.height(6.dp))
+    Text(
+        text = when {
+            animations.isEmpty() -> "还没有生成过动画，上传图片后可生成第一组动画"
+            current != null -> "正在使用：${current.title}"
+            else -> "已有 ${animations.size} 个动画，可随时切换使用"
+        },
+        color = Color(0xFF444444),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    AssistChip(
+        onClick = onManage,
+        label = { Text("管理动画") },
+        colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFF7F4EE), labelColor = Color(0xFF111111)),
+    )
+}
+
+@Composable
 private fun SizeChip(text: String, selected: Boolean, onClick: () -> Unit) {
     AssistChip(
         onClick = onClick,
@@ -837,23 +976,25 @@ private fun CoinPill(coins: Int, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .background(Color(0x22F0C24B), RoundedCornerShape(16.dp))
-            .padding(horizontal = 10.dp, vertical = 9.dp),
+            .padding(horizontal = 8.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
         Image(
             painter = painterResource(id = R.drawable.icon_coin),
             contentDescription = "金币",
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(20.dp),
         )
-        Spacer(modifier = Modifier.width(5.dp))
+        Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = coins.toString(),
             color = Color(0xFF111111),
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
-            overflow = TextOverflow.Clip,
+            softWrap = false,
+            overflow = TextOverflow.Visible,
+            modifier = Modifier.width(54.dp),
         )
     }
 }
@@ -931,18 +1072,193 @@ private fun MoodBadge(mood: PetMood) {
 
 @Composable
 private fun PlayMenuDialog(
+    petName: String,
     onSelectGame: (MiniGameItem) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        MenuDialogCard(title = "选择小游戏", subtitle = "玩耍获得金币，再给小猫买好吃的") {
+        MenuDialogCard(title = "选择小游戏", subtitle = "玩耍获得金币，再给${petName}买好吃的") {
             PetCatalog.miniGames.forEach { game ->
-                GameMenuCard(game = game, onClick = { onSelectGame(game) })
+                GameMenuCard(game = game, petName = petName, onClick = { onSelectGame(game) })
                 Spacer(modifier = Modifier.height(10.dp))
             }
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
                 Text("关闭")
             }
+        }
+    }
+}
+
+@Composable
+private fun AiAnimPickerDialog(
+    animations: List<AiAnimStore.StoredAnimation>,
+    currentDir: String?,
+    onSelect: (AiAnimStore.StoredAnimation) -> Unit,
+    onRename: (AiAnimStore.StoredAnimation, String) -> Unit,
+    onDelete: (AiAnimStore.StoredAnimation) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var editingDir by remember { mutableStateOf<String?>(null) }
+    var editingTitle by remember { mutableStateOf("") }
+    var pendingDelete by remember { mutableStateOf<AiAnimStore.StoredAnimation?>(null) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        MenuDialogCard(title = "管理动画", subtitle = "切换、重命名或删除之前生成过的动画") {
+            if (animations.isEmpty()) {
+                Text(
+                    text = "还没有可选择的动画，先生成一次吧。",
+                    color = Color(0xFF666666),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                animations.forEach { anim ->
+                    val selected = anim.dirPath == currentDir
+                    val editing = editingDir == anim.dirPath
+                    Surface(
+                        color = if (selected) Color(0xFFF1E7D7) else Color(0xFFF7F4EE),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                AiAnimCover(anim.coverPath)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = anim.title,
+                                        color = Color(0xFF111111),
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = "${anim.frameCount} 帧${if (selected) " · 当前使用" else ""}${if (anim.legacy) " · 旧版只读" else ""}",
+                                        color = Color(0xFF666666),
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                            }
+                            if (editing) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = editingTitle,
+                                    onValueChange = { editingTitle = it },
+                                    label = { Text("动画名称") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                AssistChip(
+                                    onClick = { if (!selected) onSelect(anim) },
+                                    enabled = !selected,
+                                    label = { Text(if (selected) "当前" else "使用") },
+                                    colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFFFFFFF), labelColor = Color(0xFF111111)),
+                                )
+                                if (anim.editable) {
+                                    if (editing) {
+                                        AssistChip(
+                                            onClick = {
+                                                onRename(anim, editingTitle)
+                                                editingDir = null
+                                            },
+                                            label = { Text("保存") },
+                                            colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFFFFFFF), labelColor = Color(0xFF111111)),
+                                        )
+                                        AssistChip(
+                                            onClick = { editingDir = null },
+                                            label = { Text("取消") },
+                                            colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFE8E2D8), labelColor = Color(0xFF111111)),
+                                        )
+                                    } else {
+                                        AssistChip(
+                                            onClick = {
+                                                editingDir = anim.dirPath
+                                                editingTitle = anim.title
+                                            },
+                                            label = { Text("重命名") },
+                                            colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFFFFFFF), labelColor = Color(0xFF111111)),
+                                        )
+                                        AssistChip(
+                                            onClick = { pendingDelete = anim },
+                                            label = { Text("删除") },
+                                            colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFE8E2D8), labelColor = Color(0xFF9C3A2F)),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+            }
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                Text("关闭")
+            }
+        }
+    }
+
+    pendingDelete?.let { anim ->
+        Dialog(onDismissRequest = { pendingDelete = null }) {
+            MenuDialogCard(title = "删除动画", subtitle = "删除后无法恢复") {
+                Text(
+                    text = "确定要删除“${anim.title}”吗？",
+                    color = Color(0xFF444444),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    TextButton(onClick = { pendingDelete = null }) {
+                        Text("取消")
+                    }
+                    TextButton(
+                        onClick = {
+                            onDelete(anim)
+                            pendingDelete = null
+                        },
+                    ) {
+                        Text("删除", color = Color(0xFF9C3A2F))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiAnimCover(coverPath: String?) {
+    val bitmap = remember(coverPath) {
+        coverPath?.let { runCatching { BitmapFactory.decodeFile(it) }.getOrNull() }
+    }
+    Box(
+        modifier = Modifier
+            .size(58.dp)
+            .background(Color(0x22FFFFFF), RoundedCornerShape(14.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = "动画封面",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(4.dp),
+            )
+        } else {
+            Text(
+                text = "AI",
+                color = Color(0xFF666666),
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }
@@ -962,7 +1278,7 @@ private fun FoodMenuDialog(
                     canAfford = coins >= food.price,
                     onClick = {
                         val success = onBuyFood(food)
-                        message = if (success) "已购买 ${food.name}" else "金币不够，先玩一局吧"
+                        message = if (success) "已购买 ${food.name}，投喂成功" else "金币不够，先玩一局慢慢攒吧"
                         if (success) onDismiss()
                     },
                 )
@@ -1004,11 +1320,11 @@ private fun MenuDialogCard(
 }
 
 @Composable
-private fun GameMenuCard(game: MiniGameItem, onClick: () -> Unit) {
+private fun GameMenuCard(game: MiniGameItem, petName: String, onClick: () -> Unit) {
     MenuItemCard(
         iconRes = game.iconRes,
         title = game.name,
-        description = game.description,
+        description = game.description.replace("小猫", petName),
         trailingText = if (game.enabled) "开始" else "待开放",
         enabled = true,
         locked = !game.enabled,

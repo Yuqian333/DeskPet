@@ -1,0 +1,8 @@
+# sdk.dir=你的 Android SDK 路径（通常由 Android Studio 自动生成，不建议提交真实 local.properties）
+QWEATHER_API_HOST=
+QWEATHER_API_KEY=
+REMOVE_BG_API_KEY=
+DOUBAO_API_KEY=
+DOUBAO_API_HOST=ark.cn-beijing.volces.com
+DOUBAO_IMAGE_MODEL=doubao-seedream-5-0-260128
+DOUBAO_IMAGE_INPUT_FIELD=image

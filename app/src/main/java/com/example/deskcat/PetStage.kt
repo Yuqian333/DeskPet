@@ -92,7 +92,7 @@ fun PetStage(
             StageBackgroundGlow()
 
             Text(
-                text = "拖动小猫到处跑",
+                text = "拖动${settingsState.petName}到处跑",
                 modifier = Modifier.align(Alignment.TopStart),
                 color = Color(0x99000000),
                 style = MaterialTheme.typography.labelMedium,
@@ -196,7 +196,7 @@ fun StagePetAvatar(
     LaunchedEffect(aiAnimFrames) {
         if (aiAnimFrames.isNullOrEmpty()) { aiFrameIndex = 0; return@LaunchedEffect }
         while (true) {
-            kotlinx.coroutines.delay(125L)
+            kotlinx.coroutines.delay(420L)
             aiFrameIndex = (aiFrameIndex + 1) % aiAnimFrames.size
         }
     }
@@ -273,19 +273,19 @@ fun StagePetAvatar(
         when {
             !aiAnimFrames.isNullOrEmpty() -> Image(
                 bitmap = aiAnimFrames[aiFrameIndex].asImageBitmap(),
-                contentDescription = "桌宠小猫",
+                contentDescription = "桌宠${settingsState.petName}",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
             customBitmap != null -> Image(
                 bitmap = customBitmap.asImageBitmap(),
-                contentDescription = "桌宠小猫",
+                contentDescription = "桌宠${settingsState.petName}",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
             else -> Image(
                 painter = painterResource(id = catFrame),
-                contentDescription = "桌宠小猫",
+                contentDescription = "桌宠${settingsState.petName}",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )

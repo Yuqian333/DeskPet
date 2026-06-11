@@ -33,6 +33,7 @@ import com.example.deskcat.pet.PetStateRepository
 import androidx.compose.runtime.collectAsState
 @Composable
 fun CatTeaserGame(
+    petName: String = "小猫",
     onReward: () -> Unit,
     onExit: () -> Unit,
 
@@ -100,8 +101,8 @@ fun CatTeaserGame(
         var gameStarted by remember {
             mutableStateOf(false)
         }
-        var message by remember {
-            mutableStateOf("移动逗猫棒开始游戏")
+        var message by remember(petName) {
+            mutableStateOf("移动逗猫棒，${petName}会追着小光点出发")
         }
 
         var showRewardDialog by remember {
@@ -142,7 +143,11 @@ fun CatTeaserGame(
                     floatingJob?.cancel()
                     floatingJob = scope.launch {
 
-                        floatingText = "抓到啦！✕$catchCount"
+                        floatingText = listOf(
+                            "抓到啦！×$catchCount",
+                            "啪！命中 ×$catchCount",
+                            "小爪成功 ×$catchCount",
+                        ).random()
                         floatingTextOffset = catPos
 
                         textAlpha.snapTo(1f)
@@ -172,7 +177,7 @@ fun CatTeaserGame(
 
                         gameFinished = true
 
-                        message = "小猫玩累啦~,让它休息会儿吧"
+                        message = "${petName}玩累啦，抱着奖励休息一小会儿吧"
 
                         // 修改宠物属性
 
@@ -205,7 +210,11 @@ fun CatTeaserGame(
 
                         if (!gameStarted) {
                             gameStarted = true
-                            message = "拖动逗猫棒吸引小猫"
+                            message = listOf(
+                                "拖动逗猫棒吸引$petName",
+                                "${petName}已经盯住目标啦",
+                                "小爪子预备，轻轻追上去",
+                            ).random()
                         }
                         teaserPos = Offset(
                             (teaserPos.x + dragAmount.x)
@@ -281,7 +290,7 @@ fun CatTeaserGame(
                 )
             }
 
-            // 小猫
+            // 宠物
             Image(
                 painter = painterResource(R.drawable.cat_open),
                 contentDescription = null,

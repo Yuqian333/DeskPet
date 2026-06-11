@@ -14,7 +14,7 @@ data class DesktopPetUiState(
     val position: Offset = Offset.Zero,
     val bounds: Offset = Offset.Zero,
     val mood: PetMood = PetMood.Chill,
-    val speech: String = "你好，我是你的桌宠喵。",
+    val speech: String = "你好，我是你的桌宠小猫。",
     val hunger: Int = 35,
     val happiness: Int = 70,
     val energy: Int = 80,
