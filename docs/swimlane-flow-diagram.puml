@@ -1,0 +1,65 @@
+@startuml
+title DeskPet 典型操作流程泳道图
+
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  ArrowColor #475569
+  FontColor #0F172A
+}
+skinparam partition {
+  BackgroundColor #EEF2FF
+  BorderColor #475569
+  FontColor #0F172A
+}
+
+|普通用户|
+start
+:启动 APP;
+:查看宠物状态;
+
+if (宠物当前状态?) then (需要互动)
+  :摸摸;
+elseif (饥饿)
+  :喂食;
+elseif (无聊)
+  :玩耍;
+else (疲劳)
+  :休息;
+endif
+
+if (金币不足?) then (是)
+  :进入小游戏;
+  :完成小游戏并获得奖励;
+else (否)
+endif
+
+if (需要天气提醒?) then (是)
+  :进入天气页;
+  :查询天气;
+else (否)
+endif
+
+if (需要桌面常驻?) then (是)
+  :进入设置页;
+  :授权悬浮窗权限;
+  :启动悬浮窗;
+else (否)
+endif
+stop
+
+|高级用户/演示人员|
+start
+:配置 local.properties;
+:配置和风天气 API;
+:构建安装 APP;
+:上传宠物图片;
+:生成 AI 动画;
+:进入设置页;
+:管理动画库;
+:打开悬浮窗;
+:验证动画同步;
+stop
+
+@enduml

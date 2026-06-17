@@ -1,0 +1,57 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  ArrowColor #475569
+}
+
+actor "用户" as User
+
+rectangle "DeskPet 桌面宠物系统" {
+  usecase "查看宠物" as UC_ViewPet
+  usecase "查看宠物状态" as UC_ViewStatus
+  usecase "互动养成" as UC_InteractGrow
+  usecase "互动" as UC_Interact
+  usecase "喂食" as UC_Feed
+  usecase "购买食物" as UC_BuyFood
+  usecase "进行小游戏" as UC_Game
+  usecase "玩小游戏" as UC_PlayGame
+  usecase "查询天气" as UC_Weather
+  usecase "开启悬浮窗" as UC_Floating
+  usecase "上传自定义图片" as UC_CustomImage
+  usecase "上传图片" as UC_UploadImage
+  usecase "导入资源包" as UC_ImportPack
+  usecase "生成 AI 动画" as UC_GenerateAIAnimation
+  usecase "生成/管理 AI 动画" as UC_AIAnimation
+  usecase "管理动画库" as UC_AnimationLibrary
+}
+
+User --> UC_ViewPet
+User --> UC_InteractGrow
+User --> UC_Game
+User --> UC_Weather
+User --> UC_Floating
+User --> UC_CustomImage
+User --> UC_ImportPack
+User --> UC_GenerateAIAnimation
+User --> UC_AnimationLibrary
+
+UC_ViewPet ..> UC_ViewStatus : <<include>>
+
+UC_InteractGrow ..> UC_Interact : <<include>>
+UC_InteractGrow ..> UC_Feed : <<include>>
+UC_InteractGrow ..> UC_BuyFood : <<include>>
+
+UC_Game ..> UC_PlayGame : <<include>>
+
+UC_CustomImage ..> UC_UploadImage : <<include>>
+UC_CustomImage <.. UC_ImportPack : <<extend>>
+
+UC_AIAnimation ..> UC_GenerateAIAnimation : <<include>>
+UC_AIAnimation ..> UC_AnimationLibrary : <<include>>
+User --> UC_AIAnimation
+
+@enduml
